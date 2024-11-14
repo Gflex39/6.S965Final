@@ -1,0 +1,6 @@
+<testsuites name="results">
+  <testsuite name="all" package="all">
+    <property name="random_seed" value="1731214553" />
+    <testcase name="test" classname="ether_test" file="/Users/seblohier/6.S965/finalproject/6.S965Final/sim/ether_test.py" lineno="102" time="5.280269622802734" sim_time_ns="100010.001" ratio_time="18940.32088212104" />
+  </testsuite>
+</testsuites>
