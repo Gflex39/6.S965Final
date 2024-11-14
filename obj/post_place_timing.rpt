@@ -1,0 +1,74 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2024.1 (lin64) Build 5076996 Wed May 22 18:36:09 MDT 2024
+| Date         : Thu Nov 14 00:11:50 2024
+| Host         : eecs-digital-28 running 64-bit Ubuntu 24.04.1 LTS
+| Command      : report_timing -file obj/post_place_timing.rpt
+| Design       : top_level
+| Device       : 7s50-csga324
+| Speed File   : -1  PRODUCTION 1.23 2018-06-13
+| Design State : Fully Placed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Timing Report
+
+Slack (MET) :             1.551ns  (required time - arrival time)
+  Source:                 mssc/segment_counter_reg[12]/C
+                            (rising edge-triggered cell FDRE clocked by gclk  {rise@0.000ns fall@4.000ns period=5.000ns})
+  Destination:            mssc/segment_counter_reg[4]/R
+                            (rising edge-triggered cell FDRE clocked by gclk  {rise@0.000ns fall@4.000ns period=5.000ns})
+  Path Group:             gclk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            5.000ns  (gclk rise@5.000ns - gclk rise@0.000ns)
+  Data Path Delay:        2.965ns  (logic 0.704ns (23.744%)  route 2.261ns (76.256%))
+  Logic Levels:           2  (LUT3=1 LUT5=1)
+  Clock Path Skew:        -0.020ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    4.833ns = ( 9.833 - 5.000 ) 
+    Source Clock Delay      (SCD):    5.120ns
+    Clock Pessimism Removal (CPR):    0.268ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock gclk rise edge)       0.000     0.000 r  
+    N15                                               0.000     0.000 r  clk (IN)
+                         net (fo=0)                   0.000     0.000    clk
+    N15                  IBUF (Prop_ibuf_I_O)         1.440     1.440 r  clk_IBUF_inst/O
+                         net (fo=1, estimated)        1.972     3.412    tx_clk_OBUF
+    BUFGCTRL_X0Y0        BUFG (Prop_bufg_I_O)         0.096     3.508 r  tx_clk_OBUF_BUFG_inst/O
+                         net (fo=29, estimated)       1.612     5.120    mssc/CLK
+    SLICE_X62Y68         FDRE                                         r  mssc/segment_counter_reg[12]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X62Y68         FDRE (Prop_fdre_C_Q)         0.456     5.576 f  mssc/segment_counter_reg[12]/Q
+                         net (fo=3, estimated)        0.748     6.324    mssc/segment_counter_reg[12]
+    SLICE_X63Y66         LUT3 (Prop_lut3_I0_O)        0.124     6.448 f  mssc/segment_counter[0]_i_3/O
+                         net (fo=1, estimated)        0.831     7.279    mssc/segment_counter[0]_i_3_n_0
+    SLICE_X63Y66         LUT5 (Prop_lut5_I1_O)        0.124     7.403 r  mssc/segment_counter[0]_i_1/O
+                         net (fo=17, estimated)       0.682     8.085    mssc/segment_counter[0]_i_1_n_0
+    SLICE_X62Y66         FDRE                                         r  mssc/segment_counter_reg[4]/R
+  -------------------------------------------------------------------    -------------------
+
+                         (clock gclk rise edge)       5.000     5.000 r  
+    N15                                               0.000     5.000 r  clk (IN)
+                         net (fo=0)                   0.000     5.000    clk
+    N15                  IBUF (Prop_ibuf_I_O)         1.370     6.370 r  clk_IBUF_inst/O
+                         net (fo=1, estimated)        1.873     8.244    tx_clk_OBUF
+    BUFGCTRL_X0Y0        BUFG (Prop_bufg_I_O)         0.091     8.335 r  tx_clk_OBUF_BUFG_inst/O
+                         net (fo=29, estimated)       1.498     9.833    mssc/CLK
+    SLICE_X62Y66         FDRE                                         r  mssc/segment_counter_reg[4]/C
+                         clock pessimism              0.268    10.100    
+                         clock uncertainty           -0.035    10.065    
+    SLICE_X62Y66         FDRE (Setup_fdre_C_R)       -0.429     9.636    mssc/segment_counter_reg[4]
+  -------------------------------------------------------------------
+                         required time                          9.636    
+                         arrival time                          -8.085    
+  -------------------------------------------------------------------
+                         slack                                  1.551    
+
+
+
+
