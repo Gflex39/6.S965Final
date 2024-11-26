@@ -1,3 +1,6 @@
 .venv
 *.mov
 *.DS_Store
+*.pyc
+*.bin
+*.pkl
