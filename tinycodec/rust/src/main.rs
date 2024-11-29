@@ -12,15 +12,11 @@ use clap::Parser;
 use clap::Subcommand;
 use kdam::tqdm;
 use kdam::TqdmIterator;
-use kdam::TqdmParallelIterator;
 use ndarray::prelude::*;
 use rayon::prelude::*;
-use std::cmp::Ordering;
-use std::collections::BinaryHeap;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
-use std::sync::mpsc;
 use video::decode::Decoder;
 
 #[derive(Parser)]
@@ -487,7 +483,7 @@ fn quantize(blocks: &mut Array2<i64>) {
 
     for i in 0..num_blocks {
         for j in 0..64 {
-            blocks[[i, j]] = blocks[[i, j]] / QUANTIZATION_TABLE[j];
+            blocks[[i, j]] /= QUANTIZATION_TABLE[j];
         }
     }
 }
@@ -837,8 +833,7 @@ fn encode(infile: &str, outfile: &str) -> Result<()> {
         .tqdm_with_bar(tqdm!(total = frame_count))
         .take_while(Result::is_ok)
         .par_bridge()
-        .map(|x| x.unwrap().1)
-        .map(encode_frame)
+        .map(|x| encode_frame(x.unwrap().1))
         .collect::<Vec<_>>()
         .into_iter()
         .tqdm()
@@ -850,14 +845,15 @@ fn encode(infile: &str, outfile: &str) -> Result<()> {
     Ok(())
 }
 
-/// Parse command line arguments and execute the corresponding command.
-fn main() -> Result<()> {
-    let cli = Cli::parse();
-
-    match &cli.command {
-        Commands::Encode { infile, outfile } => encode(&infile, &outfile)?,
-        Commands::Decode { .. } => (),
-    };
+fn decode(infile: &str, outfile: &str) -> Result<()> {
 
     Ok(())
+}
+
+/// Parse command line arguments and execute the corresponding command.
+fn main() -> Result<()> {
+    match &Cli::parse().command {
+        Commands::Encode { infile, outfile } => encode(infile, outfile),
+        Commands::Decode { infile, outfile } => decode(infile, outfile),
+    }
 }
