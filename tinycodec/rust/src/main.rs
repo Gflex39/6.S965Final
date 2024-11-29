@@ -27,8 +27,6 @@ enum Commands {
         infile: String,
         #[arg(value_name = "outfile")]
         outfile: String,
-        #[arg(short, long, default_value_t = 24)]
-        qp: u16,
     },
     Decode {
         #[arg(value_name = "infile")]
@@ -38,19 +36,13 @@ enum Commands {
     },
 }
 
-#[derive(Debug, Clone, Copy)]
-enum EntropySymbol {
-    DC { value: i64 },
-    AC { run: i64, value: i64 },
-}
-
-struct WriterCodebook {
+struct HuffmanCodebook {
     dc: WriteHuffmanTree<BigEndian, i64>,
     ac: WriteHuffmanTree<BigEndian, (i64, i64)>,
     value: WriteHuffmanTree<BigEndian, i64>,
 }
 
-impl WriterCodebook {
+impl HuffmanCodebook {
     fn generate_value_table() -> Vec<(i64, Vec<u8>)> {
         let mut table = Vec::new();
 
@@ -447,127 +439,213 @@ impl WriterCodebook {
             ),
         ])?;
 
-        let value = compile_write_tree::<BigEndian, i64>(WriterCodebook::generate_value_table())?;
+        let value = compile_write_tree::<BigEndian, i64>(HuffmanCodebook::generate_value_table())?;
 
-        Ok(WriterCodebook { dc, ac, value })
+        Ok(HuffmanCodebook { dc, ac, value })
     }
 }
 
-/// Reshapes a plane into an array of 4x4 blocks.
+/// Reshapes a plane into an array of 8x8 blocks.
 fn reshape_into_blocks(plane: &ArrayView2<u8>) -> Array2<i64> {
     let (height, width) = plane.dim();
-    let block_size = 4;
-    let blocks_y = height / block_size;
-    let blocks_x = width / block_size;
-    let mut blocks = Array2::<i64>::zeros((blocks_y * blocks_x, block_size * block_size));
-    blocks
-        .outer_iter_mut()
-        .enumerate()
-        .for_each(|(index, mut block)| {
-            let y = index / blocks_x;
-            let x = index % blocks_x;
-            block.assign(
-                &plane
-                    .slice(s![
-                        (y * block_size)..((y + 1) * block_size),
-                        (x * block_size)..((x + 1) * block_size)
-                    ])
-                    .to_shape(16)
-                    .unwrap()
-                    .map(|x| *x as i64),
-            );
-        });
+    let blocks_y = height / 8;
+    let blocks_x = width / 8;
+    let mut blocks = Array2::<i64>::zeros((blocks_y * blocks_x, 64));
+
+    for y in 0..blocks_y {
+        for x in 0..blocks_x {
+            for i in 0..8 {
+                for j in 0..8 {
+                    blocks[(y * blocks_x + x, i * 8 + j)] = plane[(y * 8 + i, x * 8 + j)] as i64;
+                }
+            }
+        }
+    }
+
     blocks
 }
 
-/// Quantize and transform all blocks in the given 3D array.
+// Quantization matrix
+const QUANTIZATION_TABLE: [i64; 64] = [
+    16, 11, 10, 16, 24, 40, 51, 61, 12, 12, 14, 19, 26, 58, 60, 55, 14, 13, 16, 24, 40, 57, 69, 56,
+    14, 17, 22, 29, 51, 87, 80, 62, 18, 22, 37, 56, 68, 109, 103, 77, 24, 35, 55, 64, 81, 104, 113,
+    92, 49, 64, 78, 87, 103, 121, 120, 101, 72, 92, 95, 98, 112, 100, 103, 99,
+];
+
+fn quantize(blocks: &mut Array2<i64>) {
+    let (num_blocks, _) = blocks.dim();
+
+    for i in 0..num_blocks {
+        for j in 0..64 {
+            blocks[[i, j]] = blocks[[i, j]] / QUANTIZATION_TABLE[j];
+        }
+    }
+}
+
+static CONST_BITS: i64 = 13;
+static PASS1_BITS: i64 = 2;
+static FIX_0_298631336: i64 = 2446;
+static FIX_0_390180644: i64 = 3196;
+static FIX_0_541196100: i64 = 4433;
+static FIX_0_765366865: i64 = 6270;
+static FIX_0_899976223: i64 = 7373;
+static FIX_1_175875602: i64 = 9633;
+static FIX_1_501321110: i64 = 12_299;
+static FIX_1_847759065: i64 = 15_137;
+static FIX_1_961570560: i64 = 16_069;
+static FIX_2_053119869: i64 = 16_819;
+static FIX_2_562915447: i64 = 20_995;
+static FIX_3_072711026: i64 = 25_172;
+
+/// Performs a forward discrete cosine transform on each 8x8 block of
+/// pixels in the given array.
 ///
-/// This function multiplies each block by the H.264 core transform and
-/// quantization matrices for the given quantization parameter, which is a
-/// function of the block's position in the 3D array. The result is rounded
-/// to the nearest integer and stored back in the 3D array.
-fn quantize_blocks<'a>(blocks: &mut Array2<i64>, qp: u16) {
-    let c = array![[1, 1, 1, 1], [2, 1, -1, -2], [1, -1, -1, 1], [1, -2, 2, -1]];
-    let ct = array![[1, 2, 1, 1], [1, 1, -1, -2], [1, -1, -1, 2], [1, -2, 1, -1]];
+/// The DCT is a lossy, linear transformation of the input data. It is
+/// an important step in the JPEG compression process, as it allows for
+/// the vast majority of the data to be discarded while still
+/// preserving a good image quality.
+///
+/// Taken from image-rs/image/src/codecs/jpeg/transform.rs which was
+/// in turn taken from jfdctint.c from libjpeg version 9a.
+fn fdct(blocks: &mut Array2<i64>) {
+    let (num_blocks, _) = blocks.dim();
+    let mut coeffs = [0i64; 64];
+    let mut coeffs = unsafe { ArrayViewMut1::from_shape_ptr(64, coeffs.as_mut_ptr()) };
 
-    let m = match qp % 6 {
-        0 => array![
-            [13107, 8066, 13107, 8066],
-            [8066, 5243, 8066, 5243],
-            [13107, 8066, 13107, 8066],
-            [8066, 5243, 8066, 5243]
-        ],
-        1 => array![
-            [11916, 7490, 11916, 7490],
-            [7490, 4660, 7490, 4660],
-            [11916, 7490, 11916, 7490],
-            [7490, 4660, 7490, 4660]
-        ],
-        2 => array![
-            [10082, 6554, 10082, 6554],
-            [6554, 4194, 6554, 4194],
-            [10082, 6554, 10082, 6554],
-            [6554, 4194, 6554, 4194]
-        ],
-        3 => array![
-            [9362, 5825, 9362, 5825],
-            [5825, 3647, 5825, 3647],
-            [9362, 5825, 9362, 5825],
-            [5825, 3647, 5825, 3647]
-        ],
-        4 => array![
-            [8192, 5243, 8192, 5243],
-            [5243, 3355, 5243, 3355],
-            [8192, 5243, 8192, 5243],
-            [5243, 3355, 5243, 3355]
-        ],
-        _ => array![
-            [7282, 4559, 7282, 4559],
-            [4559, 2893, 4559, 2893],
-            [7282, 4559, 7282, 4559],
-            [4559, 2893, 4559, 2893]
-        ],
-    };
+    for n in 0..num_blocks {
+        for y in 0usize..8 {
+            let y0 = y * 8;
 
-    blocks.outer_iter_mut().for_each(|mut block| {
-        let bv = block.view();
-        let mat = bv.into_shape_with_order((4, 4)).unwrap();
-        let mat = (c.dot(&mat.dot(&ct)) * &m) >> (15 + (qp / 6));
-        block.assign(&mat.into_shape_with_order(16).unwrap());
-    });
+            let t0 = blocks[[n, y0]] + blocks[[n, y0 + 7]];
+            let t1 = blocks[[n, y0 + 1]] + blocks[[n, y0 + 6]];
+            let t2 = blocks[[n, y0 + 2]] + blocks[[n, y0 + 5]];
+            let t3 = blocks[[n, y0 + 3]] + blocks[[n, y0 + 4]];
+
+            let t10 = t0 + t3;
+            let t12 = t0 - t3;
+            let t11 = t1 + t2;
+            let t13 = t1 - t2;
+
+            let t0 = blocks[[n, y0]] - blocks[[n, y0 + 7]];
+            let t1 = blocks[[n, y0 + 1]] - blocks[[n, y0 + 6]];
+            let t2 = blocks[[n, y0 + 2]] - blocks[[n, y0 + 5]];
+            let t3 = blocks[[n, y0 + 3]] - blocks[[n, y0 + 4]];
+
+            coeffs[[y0]] = (t10 + t11 - 8 * 128) << PASS1_BITS;
+            coeffs[[y0 + 4]] = (t0 - t11) << PASS1_BITS;
+
+            let mut z1 = (t12 + t13) * FIX_0_541196100;
+            z1 += 1 << (CONST_BITS - PASS1_BITS - 1);
+
+            let mut t12 = t12 * (-FIX_0_390180644);
+            let mut t13 = t13 * (-FIX_1_961570560);
+            t12 += z1;
+            t13 += z1;
+
+            let z1 = (t0 + t3) * (-FIX_0_899976223);
+            let mut t0 = t0 * FIX_1_501321110;
+            let mut t3 = t3 * FIX_0_298631336;
+            t0 += z1 + t12;
+            t3 += z1 + t13;
+
+            let z1 = (t1 + t2) * (-FIX_2_562915447);
+            let mut t1 = t1 * FIX_3_072711026;
+            let mut t2 = t2 * FIX_2_053119869;
+            t1 += z1 + t13;
+            t2 += z1 + t12;
+
+            coeffs[[y0 + 1]] = t0 >> (CONST_BITS - PASS1_BITS);
+            coeffs[[y0 + 3]] = t1 >> (CONST_BITS - PASS1_BITS);
+            coeffs[[y0 + 5]] = t2 >> (CONST_BITS - PASS1_BITS);
+            coeffs[[y0 + 7]] = t3 >> (CONST_BITS - PASS1_BITS);
+        }
+
+        for x in (0usize..8).rev() {
+            // Even part
+            let t0 = coeffs[[x]] + coeffs[[x + 8 * 7]];
+            let t1 = coeffs[[x + 8]] + coeffs[[x + 8 * 6]];
+            let t2 = coeffs[[x + 8 * 2]] + coeffs[[x + 8 * 5]];
+            let t3 = coeffs[[x + 8 * 3]] + coeffs[[x + 8 * 4]];
+
+            // Add fudge factor here for final descale
+            let t10 = t0 + t3 + (1 << (PASS1_BITS - 1));
+            let t12 = t0 - t3;
+            let t11 = t1 + t2;
+            let t13 = t1 - t2;
+
+            let t0 = coeffs[[x]] - coeffs[[x + 8 * 7]];
+            let t1 = coeffs[[x + 8]] - coeffs[[x + 8 * 6]];
+            let t2 = coeffs[[x + 8 * 2]] - coeffs[[x + 8 * 5]];
+            let t3 = coeffs[[x + 8 * 3]] - coeffs[[x + 8 * 4]];
+
+            coeffs[[x]] = (t10 + t11) >> PASS1_BITS;
+            coeffs[[x + 8 * 4]] = (t10 - t11) >> PASS1_BITS;
+
+            let mut z1 = (t12 + t13) * FIX_0_541196100;
+            // Add fudge factor here for final descale
+            z1 += 1 << (CONST_BITS + PASS1_BITS - 1);
+
+            coeffs[[x + 8 * 2]] = (z1 + t12 * FIX_0_765366865) >> (CONST_BITS + PASS1_BITS);
+            coeffs[[x + 8 * 6]] = (z1 - t13 * FIX_1_847759065) >> (CONST_BITS + PASS1_BITS);
+
+            // Odd part
+            let t12 = t0 + t2;
+            let t13 = t1 + t3;
+
+            let mut z1 = (t12 + t13) * FIX_1_175875602;
+            // Add fudge factor here for final descale
+            z1 += 1 << (CONST_BITS - PASS1_BITS - 1);
+
+            let mut t12 = t12 * (-FIX_0_390180644);
+            let mut t13 = t13 * (-FIX_1_961570560);
+            t12 += z1;
+            t13 += z1;
+
+            let z1 = (t0 + t3) * (-FIX_0_899976223);
+            let mut t0 = t0 * FIX_1_501321110;
+            let mut t3 = t3 * FIX_0_298631336;
+            t0 += z1 + t12;
+            t3 += z1 + t13;
+
+            let z1 = (t1 + t2) * (-FIX_2_562915447);
+            let mut t1 = t1 * FIX_3_072711026;
+            let mut t2 = t2 * FIX_2_053119869;
+            t1 += z1 + t13;
+            t2 += z1 + t12;
+
+            coeffs[x + 8] = t0 >> (CONST_BITS + PASS1_BITS);
+            coeffs[x + 8 * 3] = t1 >> (CONST_BITS + PASS1_BITS);
+            coeffs[x + 8 * 5] = t2 >> (CONST_BITS + PASS1_BITS);
+            coeffs[x + 8 * 7] = t3 >> (CONST_BITS + PASS1_BITS);
+        }
+
+        blocks.slice_mut(s![n, ..]).assign(&coeffs);
+    }
 }
 
-/// Reorder the elements of each block in the given 3D array in a
+// Scan order matrix
+const SCAN_ORDER_TABLE: [usize; 64] = [
+    0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5, 12, 19, 26, 33, 40, 48, 41, 34, 27, 20,
+    13, 6, 7, 14, 21, 28, 35, 42, 49, 56, 57, 50, 43, 36, 29, 22, 15, 23, 30, 37, 44, 51, 58, 59,
+    52, 45, 38, 31, 39, 46, 53, 60, 61, 54, 47, 55, 62, 63,
+];
+
+/// Reorder the elements of each block in the given array in a
 /// zigzag pattern. The output is a 2D array with the same number of
 /// blocks as the input, but with the elements of each block reordered
 /// in a zigzag pattern.
-fn zigzag_encode(input: &mut Array2<i64>) {
-    input.outer_iter_mut().for_each(|mut block| {
-        let x2 = block[2];
-        let x3 = block[3];
-        let x4 = block[4];
-        let x5 = block[5];
-        let x6 = block[6];
-        let x7 = block[7];
-        let x8 = block[8];
-        let x9 = block[9];
-        let x10 = block[10];
-        let x11 = block[11];
-        let x12 = block[12];
-        let x13 = block[13];
-        block[2] = x4;
-        block[3] = x8;
-        block[4] = x5;
-        block[5] = x2;
-        block[6] = x3;
-        block[7] = x6;
-        block[8] = x9;
-        block[9] = x12;
-        block[10] = x13;
-        block[11] = x10;
-        block[12] = x7;
-        block[13] = x11;
-    });
+fn zigzag_order(input: &mut Array2<i64>) {
+    let (num_blocks, _) = input.dim();
+    let mut temp = [0i64; 64];
+    let mut temp = unsafe { ArrayViewMut1::from_shape_ptr(64, temp.as_mut_ptr()) };
+
+    for n in 0..num_blocks {
+        for i in 0..64 {
+            temp[[i]] = input[[n, SCAN_ORDER_TABLE[i]]];
+        }
+
+        input.slice_mut(s![n, ..]).assign(&temp);
+    }
 }
 
 /// Delta encode the first column of the input array in-place.
@@ -584,7 +662,20 @@ fn delta_encode(input: &mut Array2<i64>) {
     }
 }
 
-fn convert_rgb_to_yuv(frame: &mut Array3<u8>) {
+/// Convert an RGB image to YUV in-place.
+///
+/// This is a destructive conversion, so the input array will be modified.
+/// The conversion is done according to the standard RGB to YUV conversion
+/// formula, which is:
+///
+/// Y = 0.299R + 0.587G + 0.114B
+/// U = 0.565(B-Y) + 128
+/// V = 0.713(R-Y) + 128
+///
+/// The resulting YUV values are stored in the input array, with the Y component
+/// in the first channel, the U component in the second channel, and the V
+/// component in the third channel.
+fn rgb_to_ycbcr(frame: &mut Array3<u8>) {
     let (height, width, _) = frame.dim();
     for i in 0..height {
         for j in 0..width {
@@ -601,45 +692,71 @@ fn convert_rgb_to_yuv(frame: &mut Array3<u8>) {
     }
 }
 
-fn entropy_encode(
-    yblocks: ArrayView2<i64>,
-    ublocks: ArrayView2<i64>,
-    vblocks: ArrayView2<i64>,
-) -> Vec<EntropySymbol> {
-    let mut symbols = Vec::new();
-
-    let mut encode_blocks = |blocks: ArrayView2<i64>| {
-        for i in 0..blocks.len_of(Axis(0)) {
-            let mut run = 0;
-            symbols.push(EntropySymbol::DC {
-                value: blocks[[i, 0]],
-            });
-            for j in 1..blocks.len_of(Axis(1)) {
-                if blocks[[i, j]] != 0 {
-                    symbols.push(EntropySymbol::AC {
-                        run,
-                        value: blocks[[i, j]],
-                    });
-                    run = 0;
-                } else {
-                    run += 1;
-                }
-            }
-            if run > 0 {
-                symbols.push(EntropySymbol::AC { run: 0, value: 0 });
-            }
-        }
-    };
-
-    encode_blocks(yblocks);
-    encode_blocks(ublocks);
-    encode_blocks(vblocks);
-
-    symbols
+#[derive(Debug, Clone)]
+struct EncodedFrame {
+    y: Array2<i64>,
+    u: Array2<i64>,
+    v: Array2<i64>,
 }
 
-fn encode_frame(frame: &mut Array3<u8>, qp: u16) -> Vec<EntropySymbol> {
-    convert_rgb_to_yuv(frame);
+#[inline]
+fn coding_size(n: i64) -> i64 {
+    64 - n.abs().leading_zeros() as i64
+}
+
+const ZRL: (i64, i64) = (15, 0);
+const EOB: (i64, i64) = (0, 0);
+
+/// Encode a single frame using run-length and Huffman coding.
+fn entropy_encode<H>(frame: &EncodedFrame, writer: &mut H, codebook: &HuffmanCodebook)
+where
+    H: HuffmanWrite<BigEndian>,
+{
+    for plane in [&frame.y, &frame.u, &frame.v] {
+        for n in 0..plane.len_of(Axis(0)) {
+            let mut run = 0;
+
+            let size = coding_size(plane[[n, 0]]);
+            writer.write_huffman(&codebook.dc, size).unwrap();
+            writer
+                .write_huffman(&codebook.value, plane[[n, 0]])
+                .unwrap();
+
+            for i in 1..64 {
+                if plane[[n, i]] == 0 {
+                    run += 1;
+                } else {
+                    while run > 15 {
+                        writer.write_huffman(&codebook.ac, ZRL).unwrap();
+                        run -= 16;
+                    }
+                    let size = coding_size(plane[[n, i]]);
+                    writer.write_huffman(&codebook.ac, (run, size)).unwrap();
+                    writer
+                        .write_huffman(&codebook.value, plane[[n, i]])
+                        .unwrap();
+                    run = 0;
+                }
+            }
+
+            if run > 0 {
+                writer.write_huffman(&codebook.ac, EOB).unwrap();
+            }
+        }
+    }
+}
+
+/// Encode a single frame.
+///
+/// This function takes a mutable reference to an image represented as an RGB array of
+/// u8 values and returns an `EncodedFrame` containing the Y, U, and V components of the image
+/// after they have been DCT'd, quantized, zigzagged, and delta encoded.
+///
+/// This function does not return an error. It is the caller's responsibility to ensure that the
+/// array is a valid image with a power of two width and height, and that it is large enough to
+/// fit into memory.
+fn encode_frame(mut frame: Array3<u8>) -> EncodedFrame {
+    rgb_to_ycbcr(&mut frame);
 
     let (h, w, _) = frame.dim();
     let y = frame.slice(s![0..h, 0..w, 0]);
@@ -647,39 +764,38 @@ fn encode_frame(frame: &mut Array3<u8>, qp: u16) -> Vec<EntropySymbol> {
     let v = frame.slice(s![0..h;2, 0..w;2, 2]);
 
     let mut yblocks = reshape_into_blocks(&y);
-    quantize_blocks(&mut yblocks, qp);
-    zigzag_encode(&mut yblocks);
+    fdct(&mut yblocks);
+    quantize(&mut yblocks);
+    zigzag_order(&mut yblocks);
     delta_encode(&mut yblocks);
 
     let mut ublocks = reshape_into_blocks(&u);
-    quantize_blocks(&mut ublocks, qp);
-    zigzag_encode(&mut ublocks);
+    fdct(&mut ublocks);
+    quantize(&mut ublocks);
+    zigzag_order(&mut ublocks);
     delta_encode(&mut ublocks);
 
     let mut vblocks = reshape_into_blocks(&v);
-    quantize_blocks(&mut vblocks, qp);
-    zigzag_encode(&mut vblocks);
+    fdct(&mut vblocks);
+    quantize(&mut vblocks);
+    zigzag_order(&mut vblocks);
     delta_encode(&mut vblocks);
 
-    entropy_encode(yblocks.view(), ublocks.view(), vblocks.view())
+    EncodedFrame {
+        y: yblocks,
+        u: ublocks,
+        v: vblocks,
+    }
 }
 
-fn encode(infile: &str, outfile: &str, qp: u16) -> Result<()> {
-    let codebook = WriterCodebook::new()?;
+fn encode(infile: &str, outfile: &str) -> Result<()> {
+    let codebook = HuffmanCodebook::new()?;
     let mut writer = BitWriter::endian(File::create(outfile)?, BigEndian);
     let mut decoder = Decoder::new(Path::new(infile))?;
+
     let frame_count = decoder.frames()? as usize;
     let (width, height) = decoder.size();
     let frame_rate = decoder.frame_rate() as u32;
-
-    let symbols: Vec<_> = decoder
-        .decode_iter()
-        .take_while(Result::is_ok)
-        .map(Result::unwrap)
-        .tqdm_with_bar(tqdm!(total = frame_count))
-        .par_bridge()
-        .flat_map_iter(|(_, mut frame)| encode_frame(&mut frame, qp))
-        .collect();
 
     writer.write_bytes(b"tiny")?;
     writer.write_out::<16, _>(height as u16)?;
@@ -687,18 +803,18 @@ fn encode(infile: &str, outfile: &str, qp: u16) -> Result<()> {
     writer.write_out::<16, _>(frame_rate as u16)?;
     writer.write_out::<16, _>(frame_count as u16)?;
 
-    symbols.into_iter().tqdm().for_each(|symbol| match symbol {
-        EntropySymbol::DC { value } => {
-            let size = (64 - (value.abs().leading_zeros())) as i64;
-            writer.write_huffman(&codebook.dc, size).unwrap();
-            writer.write_huffman(&codebook.value, value).unwrap();
-        }
-        EntropySymbol::AC { run, value } => {
-            let size = (64 - (value.abs().leading_zeros())) as i64;
-            writer.write_huffman(&codebook.ac, (run, size)).unwrap();
-            writer.write_huffman(&codebook.value, value).unwrap();
-        }
-    });
+    decoder
+        .decode_iter()
+        .take_while(Result::is_ok)
+        .map(Result::unwrap)
+        .map(|(_, frame)| frame)
+        .tqdm_with_bar(tqdm!(total = frame_count))
+        .par_bridge()
+        .map(encode_frame)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .tqdm()
+        .for_each(|frame| entropy_encode(&frame, &mut writer, &codebook));
 
     writer.byte_align()?;
     writer.flush()?;
@@ -711,11 +827,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::Encode {
-            infile,
-            outfile,
-            qp,
-        } => encode(&infile, &outfile, *qp)?,
+        Commands::Encode { infile, outfile } => encode(&infile, &outfile)?,
         Commands::Decode { .. } => (),
     };
 
