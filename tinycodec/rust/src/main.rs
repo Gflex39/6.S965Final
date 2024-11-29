@@ -2,15 +2,25 @@ extern crate bitstream_io as bitstream;
 extern crate video_rs as video;
 
 use anyhow::Result;
-use bitstream::{
-    huffman::{compile_write_tree, WriteHuffmanTree},
-    BigEndian, BitWrite, BitWriter, HuffmanWrite,
-};
-use clap::{Parser, Subcommand};
-use kdam::{tqdm, TqdmIterator};
+use bitstream::huffman::compile_write_tree;
+use bitstream::huffman::WriteHuffmanTree;
+use bitstream::BigEndian;
+use bitstream::BitWrite;
+use bitstream::BitWriter;
+use bitstream::HuffmanWrite;
+use clap::Parser;
+use clap::Subcommand;
+use kdam::tqdm;
+use kdam::TqdmIterator;
+use kdam::TqdmParallelIterator;
 use ndarray::prelude::*;
 use rayon::prelude::*;
-use std::{fs::File, path::Path};
+use std::cmp::Ordering;
+use std::collections::BinaryHeap;
+use std::fs::File;
+use std::io::BufWriter;
+use std::path::Path;
+use std::sync::mpsc;
 use video::decode::Decoder;
 
 #[derive(Parser)]
@@ -36,13 +46,13 @@ enum Commands {
     },
 }
 
-struct HuffmanCodebook {
+struct HuffmanTable {
     dc: WriteHuffmanTree<BigEndian, i64>,
     ac: WriteHuffmanTree<BigEndian, (i64, i64)>,
     value: WriteHuffmanTree<BigEndian, i64>,
 }
 
-impl HuffmanCodebook {
+impl HuffmanTable {
     fn generate_value_table() -> Vec<(i64, Vec<u8>)> {
         let mut table = Vec::new();
 
@@ -439,9 +449,9 @@ impl HuffmanCodebook {
             ),
         ])?;
 
-        let value = compile_write_tree::<BigEndian, i64>(HuffmanCodebook::generate_value_table())?;
+        let value = compile_write_tree::<BigEndian, i64>(HuffmanTable::generate_value_table())?;
 
-        Ok(HuffmanCodebook { dc, ac, value })
+        Ok(HuffmanTable { dc, ac, value })
     }
 }
 
@@ -699,16 +709,33 @@ struct EncodedFrame {
     v: Array2<i64>,
 }
 
-#[inline]
-fn coding_size(n: i64) -> i64 {
-    64 - n.abs().leading_zeros() as i64
-}
-
 const ZRL: (i64, i64) = (15, 0);
 const EOB: (i64, i64) = (0, 0);
 
-/// Encode a single frame using run-length and Huffman coding.
-fn entropy_encode<H>(frame: &EncodedFrame, writer: &mut H, codebook: &HuffmanCodebook)
+/// Encode the given frame using Huffman coding.
+///
+/// # Arguments
+///
+/// * `frame` - Frame to encode.
+/// * `writer` - Writer to write the encoded frame to.
+/// * `codebook` - Huffman codebook to use for encoding.
+///
+/// # Notes
+///
+/// This function assumes that the given `frame` has already been transformed
+/// into the frequency domain using the DCT and that the quantized coefficients
+/// are stored in the `y`, `u`, and `v` fields of the `frame`.
+///
+/// The encoding process is as follows:
+///
+/// 1. For each plane (Y, U, V), the first coefficient is encoded using the
+///    DC codebook.
+/// 2. The remaining coefficients are encoded using the AC codebook.
+/// 3. The length of each run of zeros is encoded using the AC codebook.
+/// 4. The coefficient value is encoded using the AC codebook.
+/// 5. If the last run of zeros is not 15, an EOB (End Of Block) code is
+///    written to indicate the end of the block.
+fn entropy_encode<H>(frame: &EncodedFrame, writer: &mut H, codebook: &HuffmanTable)
 where
     H: HuffmanWrite<BigEndian>,
 {
@@ -716,25 +743,24 @@ where
         for n in 0..plane.len_of(Axis(0)) {
             let mut run = 0;
 
-            let size = coding_size(plane[[n, 0]]);
+            let size = 64 - plane[[n, 0]].abs().leading_zeros() as i64;
             writer.write_huffman(&codebook.dc, size).unwrap();
             writer
                 .write_huffman(&codebook.value, plane[[n, 0]])
                 .unwrap();
 
             for i in 1..64 {
-                if plane[[n, i]] == 0 {
+                let v = plane[[n, i]];
+                if v == 0 {
                     run += 1;
                 } else {
                     while run > 15 {
                         writer.write_huffman(&codebook.ac, ZRL).unwrap();
                         run -= 16;
                     }
-                    let size = coding_size(plane[[n, i]]);
+                    let size = 64 - v.abs().leading_zeros() as i64;
                     writer.write_huffman(&codebook.ac, (run, size)).unwrap();
-                    writer
-                        .write_huffman(&codebook.value, plane[[n, i]])
-                        .unwrap();
+                    writer.write_huffman(&codebook.value, v).unwrap();
                     run = 0;
                 }
             }
@@ -789,8 +815,11 @@ fn encode_frame(mut frame: Array3<u8>) -> EncodedFrame {
 }
 
 fn encode(infile: &str, outfile: &str) -> Result<()> {
-    let codebook = HuffmanCodebook::new()?;
-    let mut writer = BitWriter::endian(File::create(outfile)?, BigEndian);
+    let codebook = HuffmanTable::new()?;
+    let mut writer = BitWriter::endian(
+        BufWriter::with_capacity(1024 * 1024, File::create(outfile)?),
+        BigEndian,
+    );
     let mut decoder = Decoder::new(Path::new(infile))?;
 
     let frame_count = decoder.frames()? as usize;
@@ -805,11 +834,10 @@ fn encode(infile: &str, outfile: &str) -> Result<()> {
 
     decoder
         .decode_iter()
-        .take_while(Result::is_ok)
-        .map(Result::unwrap)
-        .map(|(_, frame)| frame)
         .tqdm_with_bar(tqdm!(total = frame_count))
+        .take_while(Result::is_ok)
         .par_bridge()
+        .map(|x| x.unwrap().1)
         .map(encode_frame)
         .collect::<Vec<_>>()
         .into_iter()
