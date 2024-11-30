@@ -1,23 +1,21 @@
 extern crate bitstream_io as bitstream;
 extern crate video_rs as video;
 
-use anyhow::Result;
-use bitstream::huffman::compile_write_tree;
-use bitstream::huffman::WriteHuffmanTree;
-use bitstream::BigEndian;
-use bitstream::BitWrite;
-use bitstream::BitWriter;
-use bitstream::HuffmanWrite;
-use clap::Parser;
-use clap::Subcommand;
-use kdam::tqdm;
-use kdam::TqdmIterator;
+use anyhow::{anyhow, Result};
+use bitstream::{
+    huffman::{compile_read_tree, compile_write_tree, ReadHuffmanTree, WriteHuffmanTree},
+    BigEndian, BitRead, BitReader, BitWrite, BitWriter, HuffmanRead, HuffmanWrite,
+};
+use clap::{Parser, Subcommand};
+use core::str;
+use kdam::{tqdm, TqdmIterator};
 use ndarray::prelude::*;
-use rayon::prelude::*;
-use std::fs::File;
-use std::io::BufWriter;
-use std::path::Path;
-use video::decode::Decoder;
+use std::{
+    fs::File,
+    io::{BufReader, BufWriter, Read, Write},
+    path::Path,
+};
+use video::{decode::Decoder, encode::Settings, Encoder, Frame, Time};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -43,31 +41,15 @@ enum Commands {
 }
 
 struct HuffmanTable {
-    dc: WriteHuffmanTree<BigEndian, i64>,
-    ac: WriteHuffmanTree<BigEndian, (i64, i64)>,
-    value: WriteHuffmanTree<BigEndian, i64>,
+    dc_write: WriteHuffmanTree<BigEndian, i64>,
+    ac_write: WriteHuffmanTree<BigEndian, (i64, i64)>,
+    dc_read: Box<[ReadHuffmanTree<BigEndian, i64>]>,
+    ac_read: Box<[ReadHuffmanTree<BigEndian, (i64, i64)>]>,
 }
 
 impl HuffmanTable {
-    fn generate_value_table() -> Vec<(i64, Vec<u8>)> {
-        let mut table = Vec::new();
-
-        for value in -2047i64..2048i64 {
-            let mut v = Vec::new();
-            let size = (64 - value.abs().leading_zeros()) as i64;
-
-            for bit in (0..size).rev() {
-                v.push(((value >> bit) & 1) as u8);
-            }
-
-            table.push((value, v));
-        }
-
-        table
-    }
-
     fn new() -> Result<Self> {
-        let dc = compile_write_tree::<BigEndian, i64>(vec![
+        let dc_table = vec![
             (0, vec![0, 0]),
             (1, vec![0, 1, 0]),
             (2, vec![0, 1, 1]),
@@ -80,9 +62,10 @@ impl HuffmanTable {
             (9, vec![1, 1, 1, 1, 1, 1, 0]),
             (10, vec![1, 1, 1, 1, 1, 1, 1, 0]),
             (11, vec![1, 1, 1, 1, 1, 1, 1, 1, 0]),
-        ])?;
+            (-1, vec![1, 1, 1, 1, 1, 1, 1, 1, 1]),
+        ];
 
-        let ac = compile_write_tree::<BigEndian, (i64, i64)>(vec![
+        let ac_table = vec![
             ((0, 0), vec![1, 0, 1, 0]),
             ((0, 1), vec![0, 0]),
             ((0, 2), vec![0, 1]),
@@ -443,16 +426,193 @@ impl HuffmanTable {
                 (15, 10),
                 vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
             ),
-        ])?;
+            (
+                (-1, -1),
+                vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            ),
+        ];
 
-        let value = compile_write_tree::<BigEndian, i64>(HuffmanTable::generate_value_table())?;
+        let dc_write = compile_write_tree::<BigEndian, i64>(dc_table.clone())?;
+        let ac_write = compile_write_tree::<BigEndian, (i64, i64)>(ac_table.clone())?;
+        let dc_read = compile_read_tree::<BigEndian, i64>(dc_table)?;
+        let ac_read = compile_read_tree::<BigEndian, (i64, i64)>(ac_table)?;
 
-        Ok(HuffmanTable { dc, ac, value })
+        Ok(HuffmanTable {
+            dc_write,
+            ac_write,
+            dc_read,
+            ac_read,
+        })
+    }
+}
+
+const M1: i64 = 23170;
+const M2: i64 = 12540;
+const M3: i64 = 17734;
+const M4: i64 = 42813;
+
+/// Perform an in-place 1D forward discrete cosine transform on 8 samples.
+///
+/// This is a simplified version of the 1D DCT from the CCITT Group 4
+/// facsimile standard.  The coefficients are scaled by a factor of 2^15
+/// to avoid loss of precision in the intermediate steps, and the
+/// resulting coefficients are rounded to the nearest integer.
+///
+/// The input array must have length 8.  The output will be overwritten
+/// into the same array.
+///
+/// The algorithm is described in more detail in the CCITT Group 4
+/// facsimile standard, which is available from the ITU.
+#[inline(always)]
+fn fdct1d(mut a: ArrayViewMut1<i64>) {
+    let b0 = a[0] + a[7];
+    let b1 = a[1] + a[6];
+    let b2 = a[3] - a[4];
+    let b3 = a[1] - a[6];
+    let b4 = a[2] + a[5];
+    let b5 = a[3] + a[4];
+    let b6 = a[2] - a[5];
+    let b7 = a[0] - a[7];
+    let c0 = b0 + b5;
+    let c1 = b1 - b4;
+    let c2 = b2 + b6;
+    let c3 = b1 + b4;
+    let c4 = b0 - b5;
+    let c5 = b3 + b7;
+    let c6 = b3 + b6;
+    let c7 = b7;
+    let d0 = c0 + c3;
+    let d1 = c0 - c3;
+    let d2 = c2;
+    let d3 = c1 + c4;
+    let d4 = c2 - c5;
+    let d5 = c4;
+    let d6 = c5;
+    let d7 = c6;
+    let d8 = c7;
+    let e0 = d0;
+    let e1 = d1;
+    let e2 = (M3 * d2) >> 15;
+    let e3 = (M1 * d7) >> 15;
+    let e4 = (M4 * d6) >> 15;
+    let e5 = d5;
+    let e6 = (M1 * d3) >> 15;
+    let e7 = (M2 * d4) >> 15;
+    let e8 = d8;
+    let f0 = e0;
+    let f1 = e1;
+    let f2 = e5 + e6;
+    let f3 = e5 - e6;
+    let f4 = e3 + e8;
+    let f5 = e8 - e3;
+    let f6 = e2 + e7;
+    let f7 = e4 + e7;
+    a[0] = f0;
+    a[1] = f4 + f7;
+    a[2] = f2;
+    a[3] = f5 - f6;
+    a[4] = f1;
+    a[5] = f5 + f6;
+    a[6] = f3;
+    a[7] = f4 - f7;
+}
+
+fn fdct2d(mut samples: ArrayViewMut1<i64>) {
+    samples -= 128;
+    for y in 0..8 {
+        fdct1d(samples.slice_mut(s![y * 8..(y + 1) * 8]));
+    }
+    for x in 0..8 {
+        fdct1d(samples.slice_mut(s![x..;8]));
+    }
+}
+
+fn fdct(mut blocks: ArrayViewMut2<i64>) {
+    let (num_blocks, _) = blocks.dim();
+
+    for n in 0..num_blocks {
+        fdct2d(blocks.slice_mut(s![n, ..]));
+    }
+}
+
+const N1: i64 = 46341;
+const N2: i64 = 85627;
+const N3: i64 = 35468;
+const N4: i64 = 25080;
+
+fn idct1d(mut a: ArrayViewMut1<i64>) {
+    let b0 = a[0];
+    let b1 = a[4];
+    let b2 = a[2];
+    let b3 = a[6];
+    let b4 = a[5] - a[3];
+    let b5 = a[1] + a[7];
+    let b6 = a[1] - a[7];
+    let b7 = a[3] + a[5];
+    let c0 = b0;
+    let c1 = b1;
+    let c2 = b2 - b3;
+    let c3 = b2 + b3;
+    let c4 = b4;
+    let c5 = b5 - b7;
+    let c6 = b6;
+    let c7 = b5 + b7;
+    let c8 = b4 - b6;
+    let d0 = c0;
+    let d1 = c1;
+    let d2 = (N1 * c2) >> 15;
+    let d3 = c3;
+    let d4 = (N2 * c4) >> 15;
+    let d5 = (N1 * c5) >> 15;
+    let d6 = (N3 * c6) >> 15;
+    let d7 = c7;
+    let d8 = (N4 * c8) >> 15;
+    let e0 = d0 + d1;
+    let e1 = d0 - d1;
+    let e2 = d2 - d3;
+    let e3 = d3;
+    let e4 = d8 - d4;
+    let e5 = d5;
+    let e6 = d6 - d8;
+    let e7 = d7;
+    let f0 = e0 + e3;
+    let f1 = e1 + e2;
+    let f2 = e1 - e2;
+    let f3 = e0 - e3;
+    let f4 = e4;
+    let f5 = e5 - e6 + e7;
+    let f6 = e6 - e7;
+    let f7 = e7;
+    a[0] = f0 + f7;
+    a[1] = f1 + f6;
+    a[2] = f2 + f5;
+    a[3] = f3 - f4 - f5;
+    a[4] = f3 + f4 + f5;
+    a[5] = f2 - f5;
+    a[6] = f1 - f6;
+    a[7] = f0 - f7;
+}
+
+fn idct2d(mut samples: ArrayViewMut1<i64>) {
+    for x in 0..8 {
+        idct1d(samples.slice_mut(s![x..;8]));
+    }
+    for y in 0..8 {
+        idct1d(samples.slice_mut(s![y * 8..(y + 1) * 8]));
+    }
+    samples += 128;
+}
+
+fn idct(mut blocks: ArrayViewMut2<i64>) {
+    let (num_blocks, _) = blocks.dim();
+
+    for n in 0..num_blocks {
+        idct2d(blocks.slice_mut(s![n, ..]));
     }
 }
 
 /// Reshapes a plane into an array of 8x8 blocks.
-fn reshape_into_blocks(plane: &ArrayView2<u8>) -> Array2<i64> {
+fn reshape_into_blocks(plane: ArrayView2<u8>) -> Array2<i64> {
     let (height, width) = plane.dim();
     let blocks_y = height / 8;
     let blocks_x = width / 8;
@@ -469,6 +629,24 @@ fn reshape_into_blocks(plane: &ArrayView2<u8>) -> Array2<i64> {
     }
 
     blocks
+}
+
+fn reshape_into_plane(height: usize, width: usize, blocks: ArrayView2<i64>) -> Array2<u8> {
+    let mut plane = Array2::<u8>::zeros((height, width));
+    let blocks_y = height / 8;
+    let blocks_x = width / 8;
+
+    for y in 0..blocks_y {
+        for x in 0..blocks_x {
+            for i in 0..8 {
+                for j in 0..8 {
+                    plane[[y * 8 + i, x * 8 + j]] = blocks[[y * blocks_x + x, i * 8 + j]] as u8;
+                }
+            }
+        }
+    }
+
+    plane
 }
 
 // Quantization matrix
@@ -488,144 +666,13 @@ fn quantize(blocks: &mut Array2<i64>) {
     }
 }
 
-static CONST_BITS: i64 = 13;
-static PASS1_BITS: i64 = 2;
-static FIX_0_298631336: i64 = 2446;
-static FIX_0_390180644: i64 = 3196;
-static FIX_0_541196100: i64 = 4433;
-static FIX_0_765366865: i64 = 6270;
-static FIX_0_899976223: i64 = 7373;
-static FIX_1_175875602: i64 = 9633;
-static FIX_1_501321110: i64 = 12_299;
-static FIX_1_847759065: i64 = 15_137;
-static FIX_1_961570560: i64 = 16_069;
-static FIX_2_053119869: i64 = 16_819;
-static FIX_2_562915447: i64 = 20_995;
-static FIX_3_072711026: i64 = 25_172;
-
-/// Performs a forward discrete cosine transform on each 8x8 block of
-/// pixels in the given array.
-///
-/// The DCT is a lossy, linear transformation of the input data. It is
-/// an important step in the JPEG compression process, as it allows for
-/// the vast majority of the data to be discarded while still
-/// preserving a good image quality.
-///
-/// Taken from image-rs/image/src/codecs/jpeg/transform.rs which was
-/// in turn taken from jfdctint.c from libjpeg version 9a.
-fn fdct(blocks: &mut Array2<i64>) {
+fn unquantize(blocks: &mut Array2<i64>) {
     let (num_blocks, _) = blocks.dim();
-    let mut coeffs = [0i64; 64];
-    let mut coeffs = unsafe { ArrayViewMut1::from_shape_ptr(64, coeffs.as_mut_ptr()) };
 
-    for n in 0..num_blocks {
-        for y in 0usize..8 {
-            let y0 = y * 8;
-
-            let t0 = blocks[[n, y0]] + blocks[[n, y0 + 7]];
-            let t1 = blocks[[n, y0 + 1]] + blocks[[n, y0 + 6]];
-            let t2 = blocks[[n, y0 + 2]] + blocks[[n, y0 + 5]];
-            let t3 = blocks[[n, y0 + 3]] + blocks[[n, y0 + 4]];
-
-            let t10 = t0 + t3;
-            let t12 = t0 - t3;
-            let t11 = t1 + t2;
-            let t13 = t1 - t2;
-
-            let t0 = blocks[[n, y0]] - blocks[[n, y0 + 7]];
-            let t1 = blocks[[n, y0 + 1]] - blocks[[n, y0 + 6]];
-            let t2 = blocks[[n, y0 + 2]] - blocks[[n, y0 + 5]];
-            let t3 = blocks[[n, y0 + 3]] - blocks[[n, y0 + 4]];
-
-            coeffs[[y0]] = (t10 + t11 - 8 * 128) << PASS1_BITS;
-            coeffs[[y0 + 4]] = (t0 - t11) << PASS1_BITS;
-
-            let mut z1 = (t12 + t13) * FIX_0_541196100;
-            z1 += 1 << (CONST_BITS - PASS1_BITS - 1);
-
-            let mut t12 = t12 * (-FIX_0_390180644);
-            let mut t13 = t13 * (-FIX_1_961570560);
-            t12 += z1;
-            t13 += z1;
-
-            let z1 = (t0 + t3) * (-FIX_0_899976223);
-            let mut t0 = t0 * FIX_1_501321110;
-            let mut t3 = t3 * FIX_0_298631336;
-            t0 += z1 + t12;
-            t3 += z1 + t13;
-
-            let z1 = (t1 + t2) * (-FIX_2_562915447);
-            let mut t1 = t1 * FIX_3_072711026;
-            let mut t2 = t2 * FIX_2_053119869;
-            t1 += z1 + t13;
-            t2 += z1 + t12;
-
-            coeffs[[y0 + 1]] = t0 >> (CONST_BITS - PASS1_BITS);
-            coeffs[[y0 + 3]] = t1 >> (CONST_BITS - PASS1_BITS);
-            coeffs[[y0 + 5]] = t2 >> (CONST_BITS - PASS1_BITS);
-            coeffs[[y0 + 7]] = t3 >> (CONST_BITS - PASS1_BITS);
+    for i in 0..num_blocks {
+        for j in 0..64 {
+            blocks[[i, j]] *= QUANTIZATION_TABLE[j];
         }
-
-        for x in (0usize..8).rev() {
-            // Even part
-            let t0 = coeffs[[x]] + coeffs[[x + 8 * 7]];
-            let t1 = coeffs[[x + 8]] + coeffs[[x + 8 * 6]];
-            let t2 = coeffs[[x + 8 * 2]] + coeffs[[x + 8 * 5]];
-            let t3 = coeffs[[x + 8 * 3]] + coeffs[[x + 8 * 4]];
-
-            // Add fudge factor here for final descale
-            let t10 = t0 + t3 + (1 << (PASS1_BITS - 1));
-            let t12 = t0 - t3;
-            let t11 = t1 + t2;
-            let t13 = t1 - t2;
-
-            let t0 = coeffs[[x]] - coeffs[[x + 8 * 7]];
-            let t1 = coeffs[[x + 8]] - coeffs[[x + 8 * 6]];
-            let t2 = coeffs[[x + 8 * 2]] - coeffs[[x + 8 * 5]];
-            let t3 = coeffs[[x + 8 * 3]] - coeffs[[x + 8 * 4]];
-
-            coeffs[[x]] = (t10 + t11) >> PASS1_BITS;
-            coeffs[[x + 8 * 4]] = (t10 - t11) >> PASS1_BITS;
-
-            let mut z1 = (t12 + t13) * FIX_0_541196100;
-            // Add fudge factor here for final descale
-            z1 += 1 << (CONST_BITS + PASS1_BITS - 1);
-
-            coeffs[[x + 8 * 2]] = (z1 + t12 * FIX_0_765366865) >> (CONST_BITS + PASS1_BITS);
-            coeffs[[x + 8 * 6]] = (z1 - t13 * FIX_1_847759065) >> (CONST_BITS + PASS1_BITS);
-
-            // Odd part
-            let t12 = t0 + t2;
-            let t13 = t1 + t3;
-
-            let mut z1 = (t12 + t13) * FIX_1_175875602;
-            // Add fudge factor here for final descale
-            z1 += 1 << (CONST_BITS - PASS1_BITS - 1);
-
-            let mut t12 = t12 * (-FIX_0_390180644);
-            let mut t13 = t13 * (-FIX_1_961570560);
-            t12 += z1;
-            t13 += z1;
-
-            let z1 = (t0 + t3) * (-FIX_0_899976223);
-            let mut t0 = t0 * FIX_1_501321110;
-            let mut t3 = t3 * FIX_0_298631336;
-            t0 += z1 + t12;
-            t3 += z1 + t13;
-
-            let z1 = (t1 + t2) * (-FIX_2_562915447);
-            let mut t1 = t1 * FIX_3_072711026;
-            let mut t2 = t2 * FIX_2_053119869;
-            t1 += z1 + t13;
-            t2 += z1 + t12;
-
-            coeffs[x + 8] = t0 >> (CONST_BITS + PASS1_BITS);
-            coeffs[x + 8 * 3] = t1 >> (CONST_BITS + PASS1_BITS);
-            coeffs[x + 8 * 5] = t2 >> (CONST_BITS + PASS1_BITS);
-            coeffs[x + 8 * 7] = t3 >> (CONST_BITS + PASS1_BITS);
-        }
-
-        blocks.slice_mut(s![n, ..]).assign(&coeffs);
     }
 }
 
@@ -654,6 +701,20 @@ fn zigzag_order(input: &mut Array2<i64>) {
     }
 }
 
+fn unzigzag_order(input: &mut Array2<i64>) {
+    let (num_blocks, _) = input.dim();
+    let mut temp = [0i64; 64];
+    let mut temp = unsafe { ArrayViewMut1::from_shape_ptr(64, temp.as_mut_ptr()) };
+
+    for n in 0..num_blocks {
+        for i in 0..64 {
+            temp[[SCAN_ORDER_TABLE[i]]] = input[[n, i]];
+        }
+
+        input.slice_mut(s![n, ..]).assign(&temp);
+    }
+}
+
 /// Delta encode the first column of the input array in-place.
 ///
 /// This is a lossless encoding step, used for the DC component of the DCT.
@@ -665,6 +726,12 @@ fn delta_encode(input: &mut Array2<i64>) {
         let curr = input[[i, 0]];
         input[[i, 0]] = curr - prev;
         prev = curr;
+    }
+}
+
+fn delta_decode(input: &mut Array2<i64>) {
+    for i in 1..input.len_of(Axis(0)) {
+        input[[i, 0]] += input[[i - 1, 0]];
     }
 }
 
@@ -681,7 +748,7 @@ fn delta_encode(input: &mut Array2<i64>) {
 /// The resulting YUV values are stored in the input array, with the Y component
 /// in the first channel, the U component in the second channel, and the V
 /// component in the third channel.
-fn rgb_to_ycbcr(frame: &mut Array3<u8>) {
+fn rgb_to_yuv(frame: &mut Array3<u8>) {
     let (height, width, _) = frame.dim();
     for i in 0..height {
         for j in 0..width {
@@ -694,6 +761,36 @@ fn rgb_to_ycbcr(frame: &mut Array3<u8>) {
             frame[[i, j, 0]] = y as u8;
             frame[[i, j, 1]] = u as u8;
             frame[[i, j, 2]] = v as u8;
+        }
+    }
+}
+
+/// Convert a YUV image to RGB in-place.
+///
+/// This is a destructive conversion, so the input array will be modified.
+/// The conversion is done according to the standard YUV to RGB conversion
+/// formula, which is:
+///
+/// R = Y + 1.4903 * (V - 128)
+/// G = Y - 0.344 * (U - 128) - 0.714 * (V - 128)
+/// B = Y + 1.770 * (U - 128)
+///
+/// The resulting RGB values are stored in the input array, with the R component
+/// in the first channel, the G component in the second channel, and the B
+/// component in the third channel.
+fn yuv_to_rgb(frame: &mut Array3<u8>) {
+    let (height, width, _) = frame.dim();
+    for i in 0..height {
+        for j in 0..width {
+            let y = *frame.get((i, j, 0)).unwrap() as f64;
+            let u = *frame.get((i, j, 1)).unwrap() as f64;
+            let v = *frame.get((i, j, 2)).unwrap() as f64;
+            let r = y + 1.4903 * (v - 128.0);
+            let g = y - 0.344 * (u - 128.0) - 0.714 * (v - 128.0);
+            let b = y + 1.770 * (u - 128.0);
+            frame[[i, j, 0]] = r as u8;
+            frame[[i, j, 1]] = g as u8;
+            frame[[i, j, 2]] = b as u8;
         }
     }
 }
@@ -731,41 +828,130 @@ const EOB: (i64, i64) = (0, 0);
 /// 4. The coefficient value is encoded using the AC codebook.
 /// 5. If the last run of zeros is not 15, an EOB (End Of Block) code is
 ///    written to indicate the end of the block.
-fn entropy_encode<H>(frame: &EncodedFrame, writer: &mut H, codebook: &HuffmanTable)
-where
-    H: HuffmanWrite<BigEndian>,
+fn entropy_encode<W>(
+    frame: &EncodedFrame,
+    writer: &mut BitWriter<W, BigEndian>,
+    codebook: &HuffmanTable,
+) where
+    W: Write,
 {
     for plane in [&frame.y, &frame.u, &frame.v] {
         for n in 0..plane.len_of(Axis(0)) {
             let mut run = 0;
+            let v = plane[[n, 0]];
+            let size = 64 - v.abs().leading_zeros() as i64;
+            let v = if v < 0 {
+                (v - 1) & ((1 << (size)) - 1)
+            } else {
+                v
+            };
 
-            let size = 64 - plane[[n, 0]].abs().leading_zeros() as i64;
-            writer.write_huffman(&codebook.dc, size).unwrap();
-            writer
-                .write_huffman(&codebook.value, plane[[n, 0]])
-                .unwrap();
+            writer.write_huffman(&codebook.dc_write, size).unwrap();
+
+            if size > 0 {
+                writer.write(size as u32, v).unwrap();
+            }
 
             for i in 1..64 {
                 let v = plane[[n, i]];
-                if v == 0 {
+                let size = 64 - v.abs().leading_zeros() as i64;
+                let v = if v < 0 {
+                    (v - 1) & ((1 << (size)) - 1)
+                } else {
+                    v
+                };
+
+                if plane[[n, i]] == 0 {
                     run += 1;
                 } else {
                     while run > 15 {
-                        writer.write_huffman(&codebook.ac, ZRL).unwrap();
+                        writer.write_huffman(&codebook.ac_write, ZRL).unwrap();
                         run -= 16;
                     }
-                    let size = 64 - v.abs().leading_zeros() as i64;
-                    writer.write_huffman(&codebook.ac, (run, size)).unwrap();
-                    writer.write_huffman(&codebook.value, v).unwrap();
+                    writer
+                        .write_huffman(&codebook.ac_write, (run, size))
+                        .unwrap();
+                    if size > 0 {
+                        writer.write(size as u32, v).unwrap();
+                    }
                     run = 0;
                 }
             }
 
             if run > 0 {
-                writer.write_huffman(&codebook.ac, EOB).unwrap();
+                writer.write_huffman(&codebook.ac_write, EOB).unwrap();
             }
         }
     }
+}
+
+/// Decodes the given reader using the given Huffman codebook and returns
+/// an array of `num_blocks` blocks of 64 coefficients each. The input is
+/// assumed to be a sequence of blocks of delta-encoded coefficients.
+///
+/// The decoding process is as follows:
+///
+/// 1. The first coefficient is decoded using the DC codebook.
+/// 2. The remaining coefficients are decoded using the AC codebook.
+/// 3. The length of each run of zeros is decoded using the AC codebook.
+/// 4. The coefficient value is decoded using the AC codebook.
+/// 5. If the last run of zeros is not 15, an EOB (End Of Block) code is
+///    written to indicate the end of the block.
+///
+/// The output is an array of `num_blocks` blocks of 64 coefficients each.
+fn entropy_decode<R>(
+    reader: &mut BitReader<R, BigEndian>,
+    codebook: &HuffmanTable,
+    num_blocks: usize,
+) -> Array2<i64>
+where
+    R: Read,
+{
+    let mut result = Array2::zeros((num_blocks, 64));
+
+    for n in 0..num_blocks {
+        let mut position = 0;
+        let size = reader.read_huffman(&codebook.dc_read).unwrap();
+
+        let v = if size > 0 {
+            let v: i64 = reader.read(size as u32).unwrap();
+            if v >= (1 << (size - 1)) {
+                v
+            } else {
+                v - (1 << size) + 1
+            }
+        } else {
+            0
+        };
+
+        result[[n, position]] = v;
+        position += 1;
+
+        'inner: while position < 64 {
+            let (run, size) = reader.read_huffman(&codebook.ac_read).unwrap();
+
+            if run == 0 && size == 0 {
+                break 'inner;
+            }
+
+            let v = if size > 0 {
+                let v: i64 = reader.read(size as u32).unwrap();
+                if v >= (1 << (size - 1)) {
+                    v
+                } else {
+                    v - (1 << size) + 1
+                }
+            } else {
+                0
+            };
+
+            position += run as usize;
+            result[[n, position]] = v;
+            position += 1;
+        }
+    }
+
+    result
 }
 
 /// Encode a single frame.
@@ -778,27 +964,27 @@ where
 /// array is a valid image with a power of two width and height, and that it is large enough to
 /// fit into memory.
 fn encode_frame(mut frame: Array3<u8>) -> EncodedFrame {
-    rgb_to_ycbcr(&mut frame);
+    rgb_to_yuv(&mut frame);
 
     let (h, w, _) = frame.dim();
     let y = frame.slice(s![0..h, 0..w, 0]);
     let u = frame.slice(s![0..h;2, 0..w;2, 1]);
     let v = frame.slice(s![0..h;2, 0..w;2, 2]);
 
-    let mut yblocks = reshape_into_blocks(&y);
-    fdct(&mut yblocks);
+    let mut yblocks = reshape_into_blocks(y);
+    fdct(yblocks.view_mut());
     quantize(&mut yblocks);
     zigzag_order(&mut yblocks);
     delta_encode(&mut yblocks);
 
-    let mut ublocks = reshape_into_blocks(&u);
-    fdct(&mut ublocks);
+    let mut ublocks = reshape_into_blocks(u);
+    fdct(ublocks.view_mut());
     quantize(&mut ublocks);
     zigzag_order(&mut ublocks);
     delta_encode(&mut ublocks);
 
-    let mut vblocks = reshape_into_blocks(&v);
-    fdct(&mut vblocks);
+    let mut vblocks = reshape_into_blocks(v);
+    fdct(vblocks.view_mut());
     quantize(&mut vblocks);
     zigzag_order(&mut vblocks);
     delta_encode(&mut vblocks);
@@ -810,10 +996,60 @@ fn encode_frame(mut frame: Array3<u8>) -> EncodedFrame {
     }
 }
 
+fn decode_frame<R>(
+    reader: &mut BitReader<R, BigEndian>,
+    codebook: &HuffmanTable,
+    height: usize,
+    width: usize,
+) -> Frame
+where
+    R: Read,
+{
+    let hblocks = height / 8;
+    let wblocks = width / 8;
+
+    let mut yblocks = entropy_decode(reader, codebook, hblocks * wblocks);
+    let mut ublocks = entropy_decode(reader, codebook, hblocks * wblocks / 4);
+    let mut vblocks = entropy_decode(reader, codebook, hblocks * wblocks / 4);
+
+    delta_decode(&mut yblocks);
+    unzigzag_order(&mut yblocks);
+    unquantize(&mut yblocks);
+    idct(yblocks.view_mut());
+
+    delta_decode(&mut ublocks);
+    unzigzag_order(&mut ublocks);
+    unquantize(&mut ublocks);
+    idct(ublocks.view_mut());
+
+    delta_decode(&mut vblocks);
+    unzigzag_order(&mut vblocks);
+    unquantize(&mut vblocks);
+    idct(vblocks.view_mut());
+
+    let y = reshape_into_plane(height, width, yblocks.view());
+    let u = reshape_into_plane(height / 2, width / 2, ublocks.view());
+    let v = reshape_into_plane(height / 2, width / 2, vblocks.view());
+
+    let mut frame = Array3::<u8>::zeros((height, width, 3));
+
+    frame.indexed_iter_mut().for_each(|((i, j, c), elem)| {
+        *elem = match c {
+            0 => y[[i, j]],
+            1 => u[[i >> 1, j >> 1]],
+            _ => v[[i >> 1, j >> 1]],
+        };
+    });
+
+    yuv_to_rgb(&mut frame);
+
+    frame
+}
+
 fn encode(infile: &str, outfile: &str) -> Result<()> {
     let codebook = HuffmanTable::new()?;
     let mut writer = BitWriter::endian(
-        BufWriter::with_capacity(1024 * 1024, File::create(outfile)?),
+        BufWriter::with_capacity(20 * 1024 * 1024, File::create(outfile)?),
         BigEndian,
     );
     let mut decoder = Decoder::new(Path::new(infile))?;
@@ -832,12 +1068,10 @@ fn encode(infile: &str, outfile: &str) -> Result<()> {
         .decode_iter()
         .tqdm_with_bar(tqdm!(total = frame_count))
         .take_while(Result::is_ok)
-        .par_bridge()
-        .map(|x| encode_frame(x.unwrap().1))
-        .collect::<Vec<_>>()
-        .into_iter()
-        .tqdm()
-        .for_each(|frame| entropy_encode(&frame, &mut writer, &codebook));
+        .for_each(|frame| {
+            let frame = encode_frame(frame.unwrap().1);
+            entropy_encode(&frame, &mut writer, &codebook);
+        });
 
     writer.byte_align()?;
     writer.flush()?;
@@ -846,6 +1080,42 @@ fn encode(infile: &str, outfile: &str) -> Result<()> {
 }
 
 fn decode(infile: &str, outfile: &str) -> Result<()> {
+    let codebook = HuffmanTable::new()?;
+    let mut reader = BitReader::endian(
+        BufReader::with_capacity(20 * 1024 * 1024, File::open(infile)?),
+        BigEndian,
+    );
+    let mut header = [0u8; 4];
+
+    reader.read_bytes(&mut header)?;
+
+    if !header.eq(b"tiny") {
+        return Err(anyhow!(
+            "Invalid header: {:?}",
+            str::from_utf8(&header).unwrap()
+        ));
+    }
+
+    let height = reader.read_in::<16, u32>().unwrap() as usize;
+    let width = reader.read_in::<16, u32>().unwrap() as usize;
+    let frame_rate = reader.read_in::<16, u32>().unwrap() as usize;
+    let frame_count = reader.read_in::<16, u32>().unwrap() as usize;
+
+    let mut encoder = Encoder::new(
+        Path::new(outfile),
+        Settings::preset_h264_yuv420p(width, height, false),
+    )?;
+
+    let duration = Time::from_nth_of_a_second(frame_rate);
+    let mut position = Time::zero();
+
+    for _ in tqdm!(0..frame_count) {
+        let frame = decode_frame(&mut reader, &codebook, height, width);
+        encoder.encode(&frame, position).unwrap();
+        position = position.aligned_with(duration).add();
+    }
+
+    encoder.finish()?;
 
     Ok(())
 }
