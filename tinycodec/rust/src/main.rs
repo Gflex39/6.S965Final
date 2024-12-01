@@ -696,7 +696,7 @@ const SCAN_ORDER_TABLE: [usize; 64] = [
 /// zigzag pattern. The output is a 2D array with the same number of
 /// blocks as the input, but with the elements of each block reordered
 /// in a zigzag pattern.
-fn zigzag_order(input: &mut Array2<i64>) {
+fn zigzag_order(mut input: ArrayViewMut2<i64>) {
     let (num_blocks, _) = input.dim();
     let mut temp = [0i64; 64];
     let mut temp = unsafe { ArrayViewMut1::from_shape_ptr(64, temp.as_mut_ptr()) };
@@ -710,7 +710,7 @@ fn zigzag_order(input: &mut Array2<i64>) {
     }
 }
 
-fn unzigzag_order(input: &mut Array2<i64>) {
+fn unzigzag_order(mut input: ArrayViewMut2<i64>) {
     let (num_blocks, _) = input.dim();
     let mut temp = [0i64; 64];
     let mut temp = unsafe { ArrayViewMut1::from_shape_ptr(64, temp.as_mut_ptr()) };
@@ -729,7 +729,7 @@ fn unzigzag_order(input: &mut Array2<i64>) {
 /// This is a lossless encoding step, used for the DC component of the DCT.
 /// The first element of the column is left unchanged, and each subsequent element
 /// is replaced by the difference between it and the previous element.
-fn delta_encode(input: &mut Array2<i64>) {
+fn delta_encode(mut input: ArrayViewMut2<i64>) {
     let mut prev = input[[0, 0]];
     for i in 1..input.len_of(Axis(0)) {
         let curr = input[[i, 0]];
@@ -738,7 +738,7 @@ fn delta_encode(input: &mut Array2<i64>) {
     }
 }
 
-fn delta_decode(input: &mut Array2<i64>) {
+fn delta_decode(mut input: ArrayViewMut2<i64>) {
     for i in 1..input.len_of(Axis(0)) {
         input[[i, 0]] += input[[i - 1, 0]];
     }
@@ -757,7 +757,7 @@ fn delta_decode(input: &mut Array2<i64>) {
 /// The resulting YUV values are stored in the input array, with the Y component
 /// in the first channel, the U component in the second channel, and the V
 /// component in the third channel.
-fn rgb_to_yuv(frame: &mut Array3<u8>) {
+fn rgb_to_yuv(mut frame: ArrayViewMut3<u8>) {
     let (height, width, _) = frame.dim();
     for i in 0..height {
         for j in 0..width {
@@ -787,7 +787,7 @@ fn rgb_to_yuv(frame: &mut Array3<u8>) {
 /// The resulting RGB values are stored in the input array, with the R component
 /// in the first channel, the G component in the second channel, and the B
 /// component in the third channel.
-fn yuv_to_rgb(frame: &mut Array3<u8>) {
+fn yuv_to_rgb(mut frame: ArrayViewMut3<u8>) {
     let (height, width, _) = frame.dim();
     for i in 0..height {
         for j in 0..width {
@@ -973,7 +973,7 @@ where
 /// array is a valid image with a power of two width and height, and that it is large enough to
 /// fit into memory.
 fn encode_frame(mut frame: Array3<u8>) -> EncodedFrame {
-    rgb_to_yuv(&mut frame);
+    rgb_to_yuv(frame.view_mut());
 
     let (h, w, _) = frame.dim();
     let y = frame.slice(s![0..h, 0..w, 0]);
@@ -982,18 +982,18 @@ fn encode_frame(mut frame: Array3<u8>) -> EncodedFrame {
 
     let mut yblocks = reshape_into_blocks(y);
     fdct(yblocks.view_mut());
-    zigzag_order(&mut yblocks);
-    delta_encode(&mut yblocks);
+    zigzag_order(yblocks.view_mut());
+    delta_encode(yblocks.view_mut());
 
     let mut ublocks = reshape_into_blocks(u);
     fdct(ublocks.view_mut());
-    zigzag_order(&mut ublocks);
-    delta_encode(&mut ublocks);
+    zigzag_order(ublocks.view_mut());
+    delta_encode(ublocks.view_mut());
 
     let mut vblocks = reshape_into_blocks(v);
     fdct(vblocks.view_mut());
-    zigzag_order(&mut vblocks);
-    delta_encode(&mut vblocks);
+    zigzag_order(vblocks.view_mut());
+    delta_encode(vblocks.view_mut());
 
     EncodedFrame {
         y: yblocks,
@@ -1018,16 +1018,16 @@ where
     let mut ublocks = entropy_decode(reader, codebook, hblocks * wblocks / 4);
     let mut vblocks = entropy_decode(reader, codebook, hblocks * wblocks / 4);
 
-    delta_decode(&mut yblocks);
-    unzigzag_order(&mut yblocks);
+    delta_decode(yblocks.view_mut());
+    unzigzag_order(yblocks.view_mut());
     idct(yblocks.view_mut());
 
-    delta_decode(&mut ublocks);
-    unzigzag_order(&mut ublocks);
+    delta_decode(ublocks.view_mut());
+    unzigzag_order(ublocks.view_mut());
     idct(ublocks.view_mut());
 
-    delta_decode(&mut vblocks);
-    unzigzag_order(&mut vblocks);
+    delta_decode(vblocks.view_mut());
+    unzigzag_order(vblocks.view_mut());
     idct(vblocks.view_mut());
 
     let y = reshape_into_plane(height, width, yblocks.view());
@@ -1044,7 +1044,7 @@ where
         };
     });
 
-    yuv_to_rgb(&mut frame);
+    yuv_to_rgb(frame.view_mut());
 
     frame
 }
