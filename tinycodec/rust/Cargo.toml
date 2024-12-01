@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.3.0", features = ["derive"] }
-kdam = { version = "0.6.1", features = ["template", "spinner"] }
+kdam = { version = "0.6.1", features = ["template"] }
 anyhow = "1.0.93"
 bitstream-io = "2.6.0"
 ndarray = { version = "0.16.1" }

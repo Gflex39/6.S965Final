@@ -446,169 +446,198 @@ impl HuffmanTable {
     }
 }
 
-const M1: i64 = 23170;
-const M2: i64 = 12540;
-const M3: i64 = 17734;
-const M4: i64 = 42813;
-
-/// Perform an in-place 1D forward discrete cosine transform on 8 samples.
-///
-/// This is a simplified version of the 1D DCT from the CCITT Group 4
-/// facsimile standard.  The coefficients are scaled by a factor of 2^15
-/// to avoid loss of precision in the intermediate steps, and the
-/// resulting coefficients are rounded to the nearest integer.
-///
-/// The input array must have length 8.  The output will be overwritten
-/// into the same array.
-///
-/// The algorithm is described in more detail in the CCITT Group 4
-/// facsimile standard, which is available from the ITU.
-#[inline(always)]
-fn fdct1d(mut a: ArrayViewMut1<i64>) {
-    let b0 = a[0] + a[7];
-    let b1 = a[1] + a[6];
-    let b2 = a[3] - a[4];
-    let b3 = a[1] - a[6];
-    let b4 = a[2] + a[5];
-    let b5 = a[3] + a[4];
-    let b6 = a[2] - a[5];
-    let b7 = a[0] - a[7];
-    let c0 = b0 + b5;
-    let c1 = b1 - b4;
-    let c2 = b2 + b6;
-    let c3 = b1 + b4;
-    let c4 = b0 - b5;
-    let c5 = b3 + b7;
-    let c6 = b3 + b6;
-    let c7 = b7;
-    let d0 = c0 + c3;
-    let d1 = c0 - c3;
-    let d2 = c2;
-    let d3 = c1 + c4;
-    let d4 = c2 - c5;
-    let d5 = c4;
-    let d6 = c5;
-    let d7 = c6;
-    let d8 = c7;
-    let e0 = d0;
-    let e1 = d1;
-    let e2 = (M3 * d2) >> 15;
-    let e3 = (M1 * d7) >> 15;
-    let e4 = (M4 * d6) >> 15;
-    let e5 = d5;
-    let e6 = (M1 * d3) >> 15;
-    let e7 = (M2 * d4) >> 15;
-    let e8 = d8;
-    let f0 = e0;
-    let f1 = e1;
-    let f2 = e5 + e6;
-    let f3 = e5 - e6;
-    let f4 = e3 + e8;
-    let f5 = e8 - e3;
-    let f6 = e2 + e7;
-    let f7 = e4 + e7;
-    a[0] = f0;
-    a[1] = f4 + f7;
-    a[2] = f2;
-    a[3] = f5 - f6;
-    a[4] = f1;
-    a[5] = f5 + f6;
-    a[6] = f3;
-    a[7] = f4 - f7;
-}
-
-fn fdct2d(mut samples: ArrayViewMut1<i64>) {
-    samples -= 128;
-    for y in 0..8 {
-        fdct1d(samples.slice_mut(s![y * 8..(y + 1) * 8]));
-    }
-    for x in 0..8 {
-        fdct1d(samples.slice_mut(s![x..;8]));
-    }
-}
-
 fn fdct(mut blocks: ArrayViewMut2<i64>) {
     let (num_blocks, _) = blocks.dim();
+    let t = array![
+        [
+            0.35355339, 0.35355339, 0.35355339, 0.35355339, 0.35355339, 0.35355339, 0.35355339,
+            0.35355339,
+        ],
+        [
+            0.49039264,
+            0.41573481,
+            0.27778512,
+            0.09754516,
+            -0.09754516,
+            -0.27778512,
+            -0.41573481,
+            -0.49039264,
+        ],
+        [
+            0.46193977,
+            0.19134172,
+            -0.19134172,
+            -0.46193977,
+            -0.46193977,
+            -0.19134172,
+            0.19134172,
+            0.46193977,
+        ],
+        [
+            0.41573481,
+            -0.09754516,
+            -0.49039264,
+            -0.27778512,
+            0.27778512,
+            0.49039264,
+            0.09754516,
+            -0.41573481,
+        ],
+        [
+            0.35355339,
+            -0.35355339,
+            -0.35355339,
+            0.35355339,
+            0.35355339,
+            -0.35355339,
+            -0.35355339,
+            0.35355339,
+        ],
+        [
+            0.27778512,
+            -0.49039264,
+            0.09754516,
+            0.41573481,
+            -0.41573481,
+            -0.09754516,
+            0.49039264,
+            -0.27778512,
+        ],
+        [
+            0.19134172,
+            -0.46193977,
+            0.46193977,
+            -0.19134172,
+            -0.19134172,
+            0.46193977,
+            -0.46193977,
+            0.19134172,
+        ],
+        [
+            0.09754516,
+            -0.27778512,
+            0.41573481,
+            -0.49039264,
+            0.49039264,
+            -0.41573481,
+            0.27778512,
+            -0.09754516,
+        ],
+    ];
+    let mut block = Array2::<f64>::zeros((8, 8));
+    let tt = t.t();
+
+    blocks -= 128;
 
     for n in 0..num_blocks {
-        fdct2d(blocks.slice_mut(s![n, ..]));
+        block.indexed_iter_mut().for_each(|((i, j), v)| {
+            *v = blocks[(n, i * 8 + j)] as f64;
+        });
+        let x = t.dot(&block.dot(&tt));
+        blocks
+            .slice_mut(s![n, ..])
+            .indexed_iter_mut()
+            .for_each(|(i, v)| {
+                *v = (x[[i / 8, i % 8]] / QUANTIZATION_TABLE[i] as f64).round() as i64;
+            })
     }
-}
-
-const N1: i64 = 46341;
-const N2: i64 = 85627;
-const N3: i64 = 35468;
-const N4: i64 = 25080;
-
-fn idct1d(mut a: ArrayViewMut1<i64>) {
-    let b0 = a[0];
-    let b1 = a[4];
-    let b2 = a[2];
-    let b3 = a[6];
-    let b4 = a[5] - a[3];
-    let b5 = a[1] + a[7];
-    let b6 = a[1] - a[7];
-    let b7 = a[3] + a[5];
-    let c0 = b0;
-    let c1 = b1;
-    let c2 = b2 - b3;
-    let c3 = b2 + b3;
-    let c4 = b4;
-    let c5 = b5 - b7;
-    let c6 = b6;
-    let c7 = b5 + b7;
-    let c8 = b4 - b6;
-    let d0 = c0;
-    let d1 = c1;
-    let d2 = (N1 * c2) >> 15;
-    let d3 = c3;
-    let d4 = (N2 * c4) >> 15;
-    let d5 = (N1 * c5) >> 15;
-    let d6 = (N3 * c6) >> 15;
-    let d7 = c7;
-    let d8 = (N4 * c8) >> 15;
-    let e0 = d0 + d1;
-    let e1 = d0 - d1;
-    let e2 = d2 - d3;
-    let e3 = d3;
-    let e4 = d8 - d4;
-    let e5 = d5;
-    let e6 = d6 - d8;
-    let e7 = d7;
-    let f0 = e0 + e3;
-    let f1 = e1 + e2;
-    let f2 = e1 - e2;
-    let f3 = e0 - e3;
-    let f4 = e4;
-    let f5 = e5 - e6 + e7;
-    let f6 = e6 - e7;
-    let f7 = e7;
-    a[0] = f0 + f7;
-    a[1] = f1 + f6;
-    a[2] = f2 + f5;
-    a[3] = f3 - f4 - f5;
-    a[4] = f3 + f4 + f5;
-    a[5] = f2 - f5;
-    a[6] = f1 - f6;
-    a[7] = f0 - f7;
-}
-
-fn idct2d(mut samples: ArrayViewMut1<i64>) {
-    for x in 0..8 {
-        idct1d(samples.slice_mut(s![x..;8]));
-    }
-    for y in 0..8 {
-        idct1d(samples.slice_mut(s![y * 8..(y + 1) * 8]));
-    }
-    samples += 128;
 }
 
 fn idct(mut blocks: ArrayViewMut2<i64>) {
     let (num_blocks, _) = blocks.dim();
+    let mut block = Array2::<f64>::zeros((8, 8));
+    let t = array![
+        [
+            0.35355339, 0.35355339, 0.35355339, 0.35355339, 0.35355339, 0.35355339, 0.35355339,
+            0.35355339,
+        ],
+        [
+            0.49039264,
+            0.41573481,
+            0.27778512,
+            0.09754516,
+            -0.09754516,
+            -0.27778512,
+            -0.41573481,
+            -0.49039264,
+        ],
+        [
+            0.46193977,
+            0.19134172,
+            -0.19134172,
+            -0.46193977,
+            -0.46193977,
+            -0.19134172,
+            0.19134172,
+            0.46193977,
+        ],
+        [
+            0.41573481,
+            -0.09754516,
+            -0.49039264,
+            -0.27778512,
+            0.27778512,
+            0.49039264,
+            0.09754516,
+            -0.41573481,
+        ],
+        [
+            0.35355339,
+            -0.35355339,
+            -0.35355339,
+            0.35355339,
+            0.35355339,
+            -0.35355339,
+            -0.35355339,
+            0.35355339,
+        ],
+        [
+            0.27778512,
+            -0.49039264,
+            0.09754516,
+            0.41573481,
+            -0.41573481,
+            -0.09754516,
+            0.49039264,
+            -0.27778512,
+        ],
+        [
+            0.19134172,
+            -0.46193977,
+            0.46193977,
+            -0.19134172,
+            -0.19134172,
+            0.46193977,
+            -0.46193977,
+            0.19134172,
+        ],
+        [
+            0.09754516,
+            -0.27778512,
+            0.41573481,
+            -0.49039264,
+            0.49039264,
+            -0.41573481,
+            0.27778512,
+            -0.09754516,
+        ],
+    ];
+    let tt = t.t();
 
     for n in 0..num_blocks {
-        idct2d(blocks.slice_mut(s![n, ..]));
+        block.indexed_iter_mut().for_each(|((i, j), v)| {
+            *v = (blocks[(n, i * 8 + j)] * QUANTIZATION_TABLE[i * 8 + j]) as f64;
+        });
+        let x = tt.dot(&block.dot(&t));
+        blocks
+            .slice_mut(s![n, ..])
+            .indexed_iter_mut()
+            .for_each(|(i, v)| {
+                *v = (x[[i / 8, i % 8]].round() as i64).clamp(-128, 127);
+            })
     }
+
+    blocks += 128;
 }
 
 /// Reshapes a plane into an array of 8x8 blocks.
@@ -655,26 +684,6 @@ const QUANTIZATION_TABLE: [i64; 64] = [
     14, 17, 22, 29, 51, 87, 80, 62, 18, 22, 37, 56, 68, 109, 103, 77, 24, 35, 55, 64, 81, 104, 113,
     92, 49, 64, 78, 87, 103, 121, 120, 101, 72, 92, 95, 98, 112, 100, 103, 99,
 ];
-
-fn quantize(blocks: &mut Array2<i64>) {
-    let (num_blocks, _) = blocks.dim();
-
-    for i in 0..num_blocks {
-        for j in 0..64 {
-            blocks[[i, j]] /= QUANTIZATION_TABLE[j];
-        }
-    }
-}
-
-fn unquantize(blocks: &mut Array2<i64>) {
-    let (num_blocks, _) = blocks.dim();
-
-    for i in 0..num_blocks {
-        for j in 0..64 {
-            blocks[[i, j]] *= QUANTIZATION_TABLE[j];
-        }
-    }
-}
 
 // Scan order matrix
 const SCAN_ORDER_TABLE: [usize; 64] = [
@@ -973,19 +982,16 @@ fn encode_frame(mut frame: Array3<u8>) -> EncodedFrame {
 
     let mut yblocks = reshape_into_blocks(y);
     fdct(yblocks.view_mut());
-    quantize(&mut yblocks);
     zigzag_order(&mut yblocks);
     delta_encode(&mut yblocks);
 
     let mut ublocks = reshape_into_blocks(u);
     fdct(ublocks.view_mut());
-    quantize(&mut ublocks);
     zigzag_order(&mut ublocks);
     delta_encode(&mut ublocks);
 
     let mut vblocks = reshape_into_blocks(v);
     fdct(vblocks.view_mut());
-    quantize(&mut vblocks);
     zigzag_order(&mut vblocks);
     delta_encode(&mut vblocks);
 
@@ -1014,17 +1020,14 @@ where
 
     delta_decode(&mut yblocks);
     unzigzag_order(&mut yblocks);
-    unquantize(&mut yblocks);
     idct(yblocks.view_mut());
 
     delta_decode(&mut ublocks);
     unzigzag_order(&mut ublocks);
-    unquantize(&mut ublocks);
     idct(ublocks.view_mut());
 
     delta_decode(&mut vblocks);
     unzigzag_order(&mut vblocks);
-    unquantize(&mut vblocks);
     idct(vblocks.view_mut());
 
     let y = reshape_into_plane(height, width, yblocks.view());
