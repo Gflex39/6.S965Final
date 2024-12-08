@@ -45,7 +45,7 @@ module huffman_decoder(
     huffman_dc_lut mhdl(
         .clk_in(clk_in),
         .rst_in(rst_in),
-        .enable_in(1'b1),
+        .enable_in(state == S_DC_SIZE),
         .code_in(buffer[10:0]),
         .code_len_in(buffer_len),
         .valid_out(mhdl_valid),
@@ -56,7 +56,7 @@ module huffman_decoder(
     huffman_ac_lut mhal(
         .clk_in(clk_in),
         .rst_in(rst_in),
-        .enable_in(1'b1),
+        .enable_in(state == S_AC_SIZE),
         .code_in(buffer[15:0]),
         .code_len_in(buffer_len),
         .valid_out(mhal_valid),
@@ -66,6 +66,8 @@ module huffman_decoder(
     );
 
     assign dc_out = (state == S_DC_VALUE || state == S_DC_SIZE);
+
+    logic [26:0] DEBUG_buffer;
 
     always_ff @(posedge clk_in) begin
         if (rst_in) begin
@@ -105,7 +107,7 @@ module huffman_decoder(
                         state <= S_AC_SIZE;
                         run_out <= 0;
                         next_valid_out = 1;
-                        value_out <= (buffer[10:0] & ((1 << dc_value_size) - 1)) >> (next_buffer_len - dc_value_size);
+                        value_out <= (buffer[10:0] >> (next_buffer_len - dc_value_size)) & ((1 << dc_value_size) - 1);
                         next_buffer_len = next_buffer_len - dc_value_size;
                     end
                 end
@@ -140,7 +142,7 @@ module huffman_decoder(
                         state <= (next_num_decoded >= 64) ? S_DC_SIZE : S_AC_SIZE;
                         run_out <= ac_run;
                         next_valid_out = 1;
-                        value_out <= (buffer[10:0] & ((1 << ac_value_size) - 1)) >> (next_buffer_len - ac_value_size);
+                        value_out <= (buffer[10:0] >> (next_buffer_len - ac_value_size)) & ((1 << ac_value_size) - 1);
                         next_buffer_len = next_buffer_len - ac_value_size;
                     end
                 end
@@ -155,6 +157,8 @@ module huffman_decoder(
             buffer <= next_buffer;
             valid_out <= next_valid_out;
             num_decoded <= next_num_decoded;
+
+            DEBUG_buffer = next_buffer & ((1 << next_buffer_len) - 1);
         end
     end
 

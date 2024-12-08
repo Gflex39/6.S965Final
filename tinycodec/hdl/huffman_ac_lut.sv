@@ -57,8 +57,8 @@ module huffman_ac_lut(
     assign code = code_in & ((1 << code_len_in) - 1);
 
     assign addra = code[7:0];
-    assign addrb = code[6:0];
-    assign addrc = code[6:0];
+    assign addrb = code[6:0] & ((1 << (code_len_in - 5)) - 1);
+    assign addrc = code[6:0] & ((1 << (code_len_in - 9)) - 1);
 
     xilinx_single_port_ram_read_first #(
         .RAM_WIDTH(12),
@@ -130,9 +130,9 @@ module huffman_ac_lut(
                 run_out = 0;
             end
         end else if (stored_code_len < 13) begin
-            if (lookup_codesize_b != 0 && stored_code_len == lookup_codesize_b) begin
+            if (lookup_codesize_b != 0 && stored_code_len == (lookup_codesize_b+9)) begin
                 valid_out = 1;
-                codesize_out = lookup_codesize_b;
+                codesize_out = lookup_codesize_b+9;
                 size_out = lookup_size_b;
                 run_out = lookup_run_b;
             end else begin
@@ -142,9 +142,9 @@ module huffman_ac_lut(
                 run_out = 0;
             end
         end else begin
-            if (lookup_codesize_c != 0 && stored_code_len == lookup_codesize_c) begin
+            if (lookup_codesize_c != 0 && stored_code_len == (lookup_codesize_c+13)) begin
                 valid_out = 1;
-                codesize_out = lookup_codesize_c;
+                codesize_out = lookup_codesize_c+13;
                 size_out = lookup_size_c;
                 run_out = lookup_run_c;
             end else begin

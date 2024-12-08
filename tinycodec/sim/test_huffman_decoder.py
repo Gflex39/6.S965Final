@@ -37,7 +37,7 @@ async def off(dut):
 
 @cocotb.test()
 async def test(dut):
-    delay = True
+    delay = False
 
     await clock(dut.clk_in)
     await reset(dut.clk_in, dut.rst_in)
