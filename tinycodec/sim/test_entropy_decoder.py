@@ -11,8 +11,6 @@ import os
 import sys
 from pathlib import Path
 
-from model import encode_block
-
 async def reset(clk, rst, cycles=2):
     rst.value = 1
     await ClockCycles(clk, cycles)
@@ -21,46 +19,29 @@ async def reset(clk, rst, cycles=2):
 async def clock(clk):
     await cocotb.start(Clock(clk, 10, 'ns').start(start_high=True))
 
-async def feed_bit(dut, bit, delay):
-    await FallingEdge(dut.clk_in)
-
-    dut.serial_in.value = bit
-    dut.valid_in.value = 1
-
-    if delay:
-        await FallingEdge(dut.clk_in)
-        dut.valid_in.value = 0
-
 async def off(dut):
     await FallingEdge(dut.clk_in)
     dut.valid_in.value = 0
 
-async def send_block(dut, block, delay):
-    for b in encode_block(block):
-        await feed_bit(dut, b, delay)
+async def send_coeff(dut, coeff, run, size, dc = False):
+    await FallingEdge(dut.clk_in)
+
+    dut.value_in.value = coeff
+    dut.run_in.value = run
+    dut.size_in.value = size
+    dut.valid_in.value = 1
+    dut.dc_in.value = 1 if dc else 0
 
 @cocotb.test()
 async def test(dut):
-    delay = False
 
     await clock(dut.clk_in)
     await reset(dut.clk_in, dut.rst_in)
 
-    await send_block(dut, np.array([
-        [-16,0,0,1,512,0,0,1],
-        [0,0,0,1,0,0,0,-1],
-        [0,0,0,1,0,0,0,-1],
-        [0,0,0,1,0,0,0,-1],
-        [0,0,0,1,0,0,0,-1],
-        [0,0,0,0,0,0,0,0],
-        [0,34,0,0,0,0,0,0],
-        [0,0,0,0,0,0,0,0]
-    ]), delay)
-
-    for i in range(1,8):
-        await send_block(dut, i*np.ones((8,8), dtype=np.int64), delay)
-        for i in range(5):
-            await off(dut)
+    await send_coeff(dut, 0b0000000, 2, 7, True)
+    await send_coeff(dut, 0b111, 3, 3, True)
+    await send_coeff(dut, 0b1000, 4, 4, False)
+    await send_coeff(dut, 0b100000000, 16, 9, True)
 
     await off(dut)
     await ClockCycles(dut.clk_in, 30)
@@ -77,7 +58,7 @@ def main():
     runner = get_runner(sim)
     runner.build(
         sources=sources,
-        hdl_toplevel="huffman_decoder",
+        hdl_toplevel="entropy_decoder",
         always=True,
         build_args=build_test_args,
         parameters=parameters,
@@ -86,8 +67,8 @@ def main():
     )
     run_test_args = []
     runner.test(
-        hdl_toplevel="huffman_decoder",
-        test_module="test_huffman_decoder",
+        hdl_toplevel="entropy_decoder",
+        test_module="test_entropy_decoder",
         test_args=run_test_args,
         waves=True
     )
