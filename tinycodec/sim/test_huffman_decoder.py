@@ -4,23 +4,14 @@ import cocotb
 from cocotb.triggers import *
 from cocotb.clock import Clock
 from cocotb.runner import get_runner
-from cocotb.utils import get_sim_time
-from cocotb_bus.bus import Bus
-from cocotb_bus.drivers import BusDriver
-from cocotb_bus.monitors import Monitor
-from cocotb_bus.monitors import BusMonitor
-from cocotb_bus.scoreboard import Scoreboard
-from cocotb.handle import SimHandleBase
-from cocotb.binary import BinaryValue
 
 import numpy as np
 
 import os
 import sys
-import logging
 from pathlib import Path
 
-import matplotlib.pyplot as plt
+from model import encode_block
 
 async def reset(clk, rst, cycles=2):
     rst.value = 1
@@ -40,48 +31,43 @@ async def feed_bit(dut, bit, delay):
         await FallingEdge(dut.clk_in)
         dut.valid_in.value = 0
 
+async def off(dut):
+    await FallingEdge(dut.clk_in)
+    dut.valid_in.value = 0
+
 @cocotb.test()
 async def test(dut):
-    delay = False
+    delay = True
 
     await clock(dut.clk_in)
     await reset(dut.clk_in, dut.rst_in)
 
-    # 5
-    await feed_bit(dut, 1, delay)
-    await feed_bit(dut, 1, delay)
-    await feed_bit(dut, 0, delay)
+    block = np.array([
+        [-16,0,0,1,512,0,0,1],
+        [0,0,0,1,0,0,0,-1],
+        [0,0,0,1,0,0,0,-1],
+        [0,0,0,1,0,0,0,-1],
+        [0,0,0,1,0,0,0,-1],
+        [0,0,0,0,0,0,0,0],
+        [0,34,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0]
+    ])
 
-    await feed_bit(dut, 1, delay)
-    await feed_bit(dut, 0, delay)
-    await feed_bit(dut, 0, delay)
-    await feed_bit(dut, 0, delay)
-    await feed_bit(dut, 1, delay)
+    bits = encode_block(block)
+    print(bits)
 
-    # 7
-    await feed_bit(dut, 1, delay)
-    await feed_bit(dut, 1, delay)
-    await feed_bit(dut, 1, delay)
-    await feed_bit(dut, 1, delay)
-    await feed_bit(dut, 0, delay)
+    for b in bits:
+        await feed_bit(dut, b, delay)
 
-    await feed_bit(dut, 1, delay)
-    await feed_bit(dut, 0, delay)
-    await feed_bit(dut, 0, delay)
-    await feed_bit(dut, 0, delay)
-    await feed_bit(dut, 1, delay)
-    await feed_bit(dut, 1, delay)
-    await feed_bit(dut, 1, delay)
-
+    await off(dut)
     await ClockCycles(dut.clk_in, 30)
 
 
 def main():
-    hdl_toplevel_lang = os.getenv("HDL_TOPLEVEL_LANG", "verilog")
     sim = os.getenv("SIM", "icarus")
     proj_path = Path(__file__).resolve().parent.parent
     sys.path.append(str(proj_path / "sim" / "model"))
-    sources = [proj_path / "hdl" / "huffman_decoder.sv" ]
+    sources = [proj_path / "hdl" / f for f in os.listdir(proj_path / "hdl")]
     build_test_args = ["-Wall"]
     parameters = {}
     sys.path.append(str(proj_path / "sim"))

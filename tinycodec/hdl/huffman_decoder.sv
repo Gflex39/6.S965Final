@@ -1,68 +1,5 @@
-module dc_lut(
-    input wire clk_in,
-    input wire rst_in,
-    input wire valid_in,
-    input wire [10:0] code_in,
-    input wire [3:0]  code_len_in,
-
-    output logic valid_out,
-    output logic [3:0] codesize_out,
-    output logic [3:0] size_out
-);
-    logic [3:0]     lookup_size;
-    logic [3:0]     lookup_codesize;
-    logic           lookup_valid;
-
-    logic [10:0]    code;
-    logic [3:0]     code_len;
-    logic           code_valid;
-
-    always_ff @(posedge clk_in) begin
-        if (rst_in) begin
-            lookup_valid <= 0;
-            lookup_size <= 0;
-            lookup_codesize <= 0;
-            code <= 0;
-            code_len <= 0;
-        end else begin
-            if (valid_in) begin
-                code <= code_in & ((1 << code_len_in) - 1);
-                code_len <= code_len_in;
-                code_valid <= 1;
-            end else begin
-                code_valid <= 0;
-            end
-
-            lookup_valid = 0;
-
-            case (code)
-                11'b00000000000: begin lookup_size = 0;  lookup_codesize = 2; lookup_valid = 1; end
-                11'b00000000010: begin lookup_size = 1;  lookup_codesize = 3; lookup_valid = 1; end
-                11'b00000000011: begin lookup_size = 2;  lookup_codesize = 3; lookup_valid = 1; end
-                11'b00000000100: begin lookup_size = 3;  lookup_codesize = 3; lookup_valid = 1; end
-                11'b00000000101: begin lookup_size = 4;  lookup_codesize = 3; lookup_valid = 1; end
-                11'b00000000110: begin lookup_size = 5;  lookup_codesize = 3; lookup_valid = 1; end
-                11'b00000001110: begin lookup_size = 6;  lookup_codesize = 4; lookup_valid = 1; end
-                11'b00000011110: begin lookup_size = 7;  lookup_codesize = 5; lookup_valid = 1; end
-                11'b00000111110: begin lookup_size = 8;  lookup_codesize = 6; lookup_valid = 1; end
-                11'b00001111110: begin lookup_size = 9;  lookup_codesize = 7; lookup_valid = 1; end
-                11'b00011111110: begin lookup_size = 10; lookup_codesize = 8; lookup_valid = 1; end
-                11'b00111111110: begin lookup_size = 11; lookup_codesize = 9; lookup_valid = 1; end
-            endcase
-
-            if (lookup_valid && code_len == lookup_codesize) begin
-                valid_out <= code_valid;
-                codesize_out <= lookup_codesize;
-                size_out <= lookup_size;
-            end else begin
-                valid_out <= 0;
-                codesize_out <= 0;
-                size_out <= 0;
-            end
-        end
-    end
-
-endmodule
+`timescale 1ns / 1ps
+`default_nettype none
 
 module huffman_decoder(
     input wire clk_in,
@@ -70,42 +7,68 @@ module huffman_decoder(
     input wire serial_in,
     input wire valid_in,
 
-    output logic [11:0] value_out,
+    output logic [10:0] value_out,
     output logic [3:0] run_out,
+    output logic dc_out,
     output logic valid_out
 );
     parameter S_DC_SIZE = 0;
     parameter S_DC_VALUE = 1;
     parameter S_AC_SIZE = 2;
     parameter S_AC_VALUE = 3;
-    parameter S_RESET = 4;
 
     logic [2:0]     state;
 
     logic [26:0]    buffer;
     logic [26:0]    next_buffer;
-    logic [3:0]     buffer_len;
-    logic [3:0]     next_buffer_len;
+    logic [4:0]     buffer_len;
+    logic [4:0]     next_buffer_len;
 
-    logic           mdl_valid;
-    logic [3:0]     mdl_codesize;
-    logic [3:0]     mdl_size;
+    logic           mhdl_valid;
+    logic [4:0]     mhdl_codesize;
+    logic [4:0]     mhdl_size;
 
-    logic [3:0]     dc_value_size;
+    logic           mhal_valid;
+    logic [4:0]     mhal_codesize;
+    logic [4:0]     mhal_size;
+    logic [4:0]     mhal_run;
 
-    dc_lut mdl(
+    logic [4:0]     dc_value_size;
+    logic [4:0]     ac_value_size;
+    logic [4:0]     ac_run;
+
+    logic [7:0]     num_decoded;
+    logic [7:0]     next_num_decoded;
+
+    logic           next_valid_out;
+
+    huffman_dc_lut mhdl(
         .clk_in(clk_in),
         .rst_in(rst_in),
-        .valid_in(state == S_DC_SIZE),
+        .enable_in(1'b1),
         .code_in(buffer[10:0]),
         .code_len_in(buffer_len),
-        .valid_out(mdl_valid),
-        .codesize_out(mdl_codesize),
-        .size_out(mdl_size)
+        .valid_out(mhdl_valid),
+        .codesize_out(mhdl_codesize),
+        .size_out(mhdl_size)
     );
 
+    huffman_ac_lut mhal(
+        .clk_in(clk_in),
+        .rst_in(rst_in),
+        .enable_in(1'b1),
+        .code_in(buffer[15:0]),
+        .code_len_in(buffer_len),
+        .valid_out(mhal_valid),
+        .codesize_out(mhal_codesize),
+        .size_out(mhal_size),
+        .run_out(mhal_run)
+    );
+
+    assign dc_out = (state == S_DC_VALUE || state == S_DC_SIZE);
+
     always_ff @(posedge clk_in) begin
-        if (rst_in || state == S_RESET) begin
+        if (rst_in) begin
             buffer <= 0;
             buffer_len <= 0;
             state <= S_DC_SIZE;
@@ -113,30 +76,73 @@ module huffman_decoder(
             valid_out <= 0;
             run_out <= 0;
             dc_value_size <= 0;
+            ac_value_size <= 0;
+            ac_run <= 0;
+            num_decoded <= 0;
         end else begin
             next_buffer_len = buffer_len;
             next_buffer = buffer;
+            next_valid_out = 0;
+            next_num_decoded = num_decoded;
 
             case (state)
                 S_DC_SIZE: begin
-                    if (mdl_valid) begin
-                        state <= S_DC_VALUE;
-                        dc_value_size <= mdl_size;
-                        next_buffer_len = next_buffer_len - mdl_codesize;
-                    end else if (next_buffer_len == 15) begin
-                        state <= S_RESET;
+                    if (mhdl_valid) begin
+                        if (mhdl_size == 0) begin
+                            next_valid_out = 1;
+                            run_out <= 0;
+                            value_out <= 0;
+                        end
+                        next_num_decoded = 1;
+                        state <= (mhdl_size == 0) ? S_AC_SIZE : S_DC_VALUE;
+                        dc_value_size <= mhdl_size;
+                        next_buffer_len = next_buffer_len - mhdl_codesize;
                     end
-                    valid_out <= 0;
                 end
 
                 S_DC_VALUE: begin
-                    if (next_buffer_len == dc_value_size) begin
-                        state <= S_DC_SIZE; // TODO: changeme later to go to AC
+                    if (next_buffer_len >= dc_value_size) begin
+                        state <= S_AC_SIZE;
                         run_out <= 0;
-                        valid_out <= 1;
+                        next_valid_out = 1;
+                        value_out <= (buffer[10:0] & ((1 << dc_value_size) - 1)) >> (next_buffer_len - dc_value_size);
                         next_buffer_len = next_buffer_len - dc_value_size;
-                        value_out <= buffer[11:0] & ((1 << dc_value_size) - 1);
-                    end else valid_out <= 0;
+                    end
+                end
+
+                S_AC_SIZE: begin
+                    if (mhal_valid) begin
+                        next_num_decoded = 1 + num_decoded + mhal_run;
+                        next_buffer_len = next_buffer_len - mhal_codesize;
+
+                        if (mhal_size == 0 && mhal_run == 0) begin
+                            next_valid_out = 1;
+                            run_out <= (63-num_decoded);
+                            value_out <= 0;
+                            state <= S_DC_SIZE;
+                        end else begin
+                            if (mhal_size == 0) begin
+                                next_valid_out = 1;
+                                state <= (next_num_decoded >= 64) ? S_DC_SIZE : S_AC_SIZE;
+                                run_out <= mhal_run;
+                                value_out <= 0;
+                            end else begin
+                                ac_value_size <= mhal_size;
+                                ac_run <= mhal_run;
+                                state <= S_AC_VALUE;
+                            end
+                        end
+                    end
+                end
+
+                S_AC_VALUE: begin
+                    if (next_buffer_len >= ac_value_size) begin
+                        state <= (next_num_decoded >= 64) ? S_DC_SIZE : S_AC_SIZE;
+                        run_out <= ac_run;
+                        next_valid_out = 1;
+                        value_out <= (buffer[10:0] & ((1 << ac_value_size) - 1)) >> (next_buffer_len - ac_value_size);
+                        next_buffer_len = next_buffer_len - ac_value_size;
+                    end
                 end
             endcase
 
@@ -147,6 +153,8 @@ module huffman_decoder(
 
             buffer_len <= next_buffer_len;
             buffer <= next_buffer;
+            valid_out <= next_valid_out;
+            num_decoded <= next_num_decoded;
         end
     end
 

@@ -198,3 +198,4 @@ cython_debug/
 #.idea/
 
 sim_build/
+tinycodec/tmp
