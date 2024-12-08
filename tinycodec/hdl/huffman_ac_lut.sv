@@ -21,6 +21,7 @@ module huffman_ac_lut(
 );
 
     logic [4:0]     stored_code_len;
+    logic           stored_valid;
 
     logic [11:0]    lookup_a;
     logic [3:0]     lookup_run_a;
@@ -111,15 +112,17 @@ module huffman_ac_lut(
     always_ff @(posedge clk_in) begin
         if (rst_in) begin
             stored_code_len <= 0;
+            stored_valid <= 0;
         end else begin
             stored_code_len <= code_len_in;
+            stored_valid <= enable_in;
         end
     end
 
     always_comb begin
         if (stored_code_len < 9) begin
             if (lookup_codesize_a != 0 && stored_code_len == lookup_codesize_a) begin
-                valid_out = 1;
+                valid_out = stored_valid;
                 codesize_out = lookup_codesize_a;
                 size_out = lookup_size_a;
                 run_out = lookup_run_a;
@@ -131,7 +134,7 @@ module huffman_ac_lut(
             end
         end else if (stored_code_len < 13) begin
             if (lookup_codesize_b != 0 && stored_code_len == (lookup_codesize_b+9)) begin
-                valid_out = 1;
+                valid_out = stored_valid;
                 codesize_out = lookup_codesize_b+9;
                 size_out = lookup_size_b;
                 run_out = lookup_run_b;
@@ -143,7 +146,7 @@ module huffman_ac_lut(
             end
         end else begin
             if (lookup_codesize_c != 0 && stored_code_len == (lookup_codesize_c+13)) begin
-                valid_out = 1;
+                valid_out = stored_valid;
                 codesize_out = lookup_codesize_c+13;
                 size_out = lookup_size_c;
                 run_out = lookup_run_c;

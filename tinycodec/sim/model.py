@@ -387,7 +387,6 @@ AC_TABLE = {k: v for k, v in AC_TABLE}
 def encode_value(x: int, sz: int, l: list):
     x = x if x > 0 else x - 1
     x = x & ((1 << sz) - 1)
-    print(bin(x), sz)
     for i in range(sz):
         b = 1 if ((x & (1 << (sz-1-i))) != 0) else 0
         l.append(b)

@@ -35,6 +35,10 @@ async def off(dut):
     await FallingEdge(dut.clk_in)
     dut.valid_in.value = 0
 
+async def send_block(dut, block, delay):
+    for b in encode_block(block):
+        await feed_bit(dut, b, delay)
+
 @cocotb.test()
 async def test(dut):
     delay = False
@@ -42,7 +46,7 @@ async def test(dut):
     await clock(dut.clk_in)
     await reset(dut.clk_in, dut.rst_in)
 
-    block = np.array([
+    await send_block(dut, np.array([
         [-16,0,0,1,512,0,0,1],
         [0,0,0,1,0,0,0,-1],
         [0,0,0,1,0,0,0,-1],
@@ -51,13 +55,9 @@ async def test(dut):
         [0,0,0,0,0,0,0,0],
         [0,34,0,0,0,0,0,0],
         [0,0,0,0,0,0,0,0]
-    ])
+    ]), delay)
 
-    bits = encode_block(block)
-    print(bits)
-
-    for b in bits:
-        await feed_bit(dut, b, delay)
+    await send_block(dut, np.ones((8,8), dtype=np.int64), delay)
 
     await off(dut)
     await ClockCycles(dut.clk_in, 30)

@@ -8,7 +8,8 @@ module huffman_decoder(
     input wire valid_in,
 
     output logic [10:0] value_out,
-    output logic [3:0] run_out,
+    output logic [4:0] run_out,
+    output logic [4:0] size_out,
     output logic dc_out,
     output logic valid_out
 );
@@ -77,6 +78,7 @@ module huffman_decoder(
             value_out <= 0;
             valid_out <= 0;
             run_out <= 0;
+            size_out <= 0;
             dc_value_size <= 0;
             ac_value_size <= 0;
             ac_run <= 0;
@@ -93,6 +95,7 @@ module huffman_decoder(
                         if (mhdl_size == 0) begin
                             next_valid_out = 1;
                             run_out <= 0;
+                            size_out <= 0;
                             value_out <= 0;
                         end
                         next_num_decoded = 1;
@@ -106,6 +109,7 @@ module huffman_decoder(
                     if (next_buffer_len >= dc_value_size) begin
                         state <= S_AC_SIZE;
                         run_out <= 0;
+                        size_out <= dc_value_size;
                         next_valid_out = 1;
                         value_out <= (buffer[10:0] >> (next_buffer_len - dc_value_size)) & ((1 << dc_value_size) - 1);
                         next_buffer_len = next_buffer_len - dc_value_size;
@@ -127,6 +131,7 @@ module huffman_decoder(
                                 next_valid_out = 1;
                                 state <= (next_num_decoded >= 64) ? S_DC_SIZE : S_AC_SIZE;
                                 run_out <= mhal_run;
+                                size_out <= mhal_size;
                                 value_out <= 0;
                             end else begin
                                 ac_value_size <= mhal_size;
@@ -141,6 +146,7 @@ module huffman_decoder(
                     if (next_buffer_len >= ac_value_size) begin
                         state <= (next_num_decoded >= 64) ? S_DC_SIZE : S_AC_SIZE;
                         run_out <= ac_run;
+                        size_out <= ac_value_size;
                         next_valid_out = 1;
                         value_out <= (buffer[10:0] >> (next_buffer_len - ac_value_size)) & ((1 << ac_value_size) - 1);
                         next_buffer_len = next_buffer_len - ac_value_size;
