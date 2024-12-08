@@ -1,0 +1,6 @@
+<testsuites name="results">
+  <testsuite name="all" package="all">
+    <property name="random_seed" value="1733633994" />
+    <testcase name="test_idct_2d" classname="test_idct_2d" file="C:\Users\hranw\Documents\GitHub\6.S965Final\idct\sim\test_idct_2d.py" lineno="237" time="0.01669168472290039" sim_time_ns="540.001" ratio_time="32351.49770467076" />
+  </testsuite>
+</testsuites>
