@@ -57,7 +57,8 @@ async def test(dut):
         [0,0,0,0,0,0,0,0]
     ]), delay)
 
-    await send_block(dut, np.ones((8,8), dtype=np.int64), delay)
+    for i in range(1,8):
+        await send_block(dut, i*np.ones((8,8), dtype=np.int64), delay)
 
     await off(dut)
     await ClockCycles(dut.clk_in, 30)
