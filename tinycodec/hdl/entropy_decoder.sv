@@ -5,18 +5,18 @@ module entropy_decoder#(
     parameter DELTA_DECODE = 1
 )
 (
-    input wire          clk_in,
-    input wire          rst_in,
-    input wire [10:0]   value_in,
-    input wire [4:0]    run_in,
-    input wire [4:0]    size_in,
-    input wire          valid_in,
-    input wire          dc_in,
+    input wire clk_in,
+    input wire rst_in,
+    input wire [10:0] value_in,
+    input wire [4:0] run_in,
+    input wire [4:0] size_in,
+    input wire valid_in,
+    input wire dc_in,
 
-    output logic signed [11:0]  value_out,
-    output logic [4:0]          run_out,
-    output logic                dc_out,
-    output logic                valid_out
+    output logic signed [11:0] value_out,
+    output logic [4:0] run_out,
+    output logic dc_out,
+    output logic valid_out
 );
     logic signed [11:0] value;
     logic signed [11:0] last_dc_value;
