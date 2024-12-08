@@ -68,7 +68,7 @@ module huffman_decoder(
 
     assign dc_out = (state == S_DC_VALUE || state == S_DC_SIZE);
 
-    logic [26:0] DEBUG_buffer;
+    // logic [26:0] DEBUG_buffer;
 
     always_ff @(posedge clk_in) begin
         if (rst_in) begin
@@ -164,7 +164,7 @@ module huffman_decoder(
             valid_out <= next_valid_out;
             num_decoded <= next_num_decoded;
 
-            DEBUG_buffer = next_buffer & ((1 << next_buffer_len) - 1);
+            // DEBUG_buffer = next_buffer & ((1 << next_buffer_len) - 1);
         end
     end
 
