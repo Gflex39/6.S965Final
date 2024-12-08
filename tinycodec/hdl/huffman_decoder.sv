@@ -66,8 +66,6 @@ module huffman_decoder(
         .run_out(mhal_run)
     );
 
-    assign dc_out = (state == S_DC_VALUE || state == S_DC_SIZE);
-
     // logic [26:0] DEBUG_buffer;
 
     always_ff @(posedge clk_in) begin
@@ -83,11 +81,14 @@ module huffman_decoder(
             ac_value_size <= 0;
             ac_run <= 0;
             num_decoded <= 0;
+            dc_out <= 0;
         end else begin
             next_buffer_len = buffer_len;
             next_buffer = buffer;
             next_valid_out = 0;
             next_num_decoded = num_decoded;
+
+            dc_out <= (state == S_DC_VALUE || state == S_DC_SIZE);
 
             case (state)
                 S_DC_SIZE: begin
