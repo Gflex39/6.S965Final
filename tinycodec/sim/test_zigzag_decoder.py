@@ -61,6 +61,7 @@ async def test(dut):
     await ClockCycles(dut.clk_in, 16)
 
     await send_coeff(dut, 690, 63)
+    await off(dut)
 
     await ClockCycles(dut.clk_in, 16)
 

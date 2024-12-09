@@ -17,6 +17,7 @@ module zigzag_decoder(
     logic        state1;
     logic        state2;
     logic        state3;
+    logic        state4;
     logic        swap_buffers;
     logic        clear_buffer;
 
@@ -48,6 +49,7 @@ module zigzag_decoder(
     pipeline#(.PIPELINE_STAGES(2),.PIPELINE_WIDTH(1))  p5 (.clk_in(clk_in),.rst_in(rst_in),.signal_in(swap_buffers),.signal_out(rd_enable));
     pipeline#(.PIPELINE_STAGES(3),.PIPELINE_WIDTH(4))  p6 (.clk_in(clk_in),.rst_in(rst_in),.signal_in({(rd_left>0),rd_pos[2:0]}),.signal_out({rd_valid,rd_pos3}));
     pipeline#(.PIPELINE_STAGES(1),.PIPELINE_WIDTH(1))  p7 (.clk_in(clk_in),.rst_in(rst_in),.signal_in(state2),.signal_out(state3));
+    pipeline#(.PIPELINE_STAGES(1),.PIPELINE_WIDTH(1))  p8 (.clk_in(clk_in),.rst_in(rst_in),.signal_in(state3),.signal_out(state4));
 
     scan_order_lut msol ( .clk_in(clk_in), .rst_in(rst_in), .x_in(wr_pos[5:0]+run_in), .x_out(wr_addr) );
     negedge_detector n1 (.clk_in(clk_in), .rst_in(rst_in), .level_in(valid_out), .level_out(clear_buffer));
@@ -147,7 +149,7 @@ module zigzag_decoder(
             end
 
             if (clear_buffer) begin
-                case (state)
+                case (state4)
                     READA: mask_a <= 0;
                     READB: mask_b <= 0;
                 endcase
