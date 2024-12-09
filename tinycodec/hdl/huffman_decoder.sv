@@ -1,6 +1,8 @@
 `timescale 1ns / 1ps
 `default_nettype none
 
+// TODO(kosinw): change run_out to be 5 bits to 6 bits (otherwise this mod is fked)
+
 module huffman_decoder(
     input wire clk_in,
     input wire rst_in,
