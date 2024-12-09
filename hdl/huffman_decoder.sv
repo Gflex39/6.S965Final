@@ -8,7 +8,7 @@ module huffman_decoder(
     input wire valid_in,
 
     output logic [10:0] value_out,
-    output logic [4:0] run_out,
+    output logic [5:0] run_out,
     output logic [4:0] size_out,
     output logic dc_out,
     output logic valid_out

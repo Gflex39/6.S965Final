@@ -391,6 +391,8 @@ SCAN_ORDER_TABLE = [
 ]
 
 def encode_value(x: int, sz: int, l: list):
+    if sz == 0:
+        return
     x = x if x > 0 else x - 1
     x = x & ((1 << sz) - 1)
     for i in range(sz):
@@ -398,6 +400,8 @@ def encode_value(x: int, sz: int, l: list):
         l.append(b)
 
 def get_size(x):
+    if x == 0:
+        return 0
     return len(np.binary_repr(np.abs(x)))
 
 def encode_block(x: np.ndarray) -> list[int]:

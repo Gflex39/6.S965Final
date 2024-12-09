@@ -62,6 +62,8 @@ async def test(dut):
         for i in range(5):
             await off(dut)
 
+    await send_block(dut, np.zeros((8,8), dtype=np.int64), delay)
+
     await off(dut)
     await ClockCycles(dut.clk_in, 30)
 
