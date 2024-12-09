@@ -91,30 +91,6 @@ module jpeg_decoder (
       .valid_out(valid_miq_midct)
   );
 
-  //   idct_2d midct (
-  //       .rst_in(rst_in),
-  //       .clk_in(clk_in),
-  //       .idct_in_0(idct_in_0),
-  //       .idct_in_1(idct_in_1),
-  //       .idct_in_2(idct_in_2),
-  //       .idct_in_3(idct_in_3),
-  //       .idct_in_4(idct_in_4),
-  //       .idct_in_5(idct_in_5),
-  //       .idct_in_6(idct_in_6),
-  //       .idct_in_7(idct_in_7),
-  //       .valid_in(valid_miq_midct),
-  //       .idct_out_0(idct_out_0),
-  //       .idct_out_1(idct_out_1),
-  //       .idct_out_2(idct_out_2),
-  //       .idct_out_3(idct_out_3),
-  //       .idct_out_4(idct_out_4),
-  //       .idct_out_5(idct_out_5),
-  //       .idct_out_6(idct_out_6),
-  //       .idct_out_7(idct_out_7),
-  //       .valid_out(valid_out),
-  //       .final_out(final_out)
-  //   );
-
   idct_2d midct (
       .rst_in(rst_in),
       .clk_in(clk_in),
