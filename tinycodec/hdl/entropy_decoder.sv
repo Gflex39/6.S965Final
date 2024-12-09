@@ -24,7 +24,7 @@ module entropy_decoder#(
             value_out <= value;
             run_out <= run_in;
             valid_out <= 1;
-            last_dc_value <= (dc_in) ? value : last_dc_value;
+            last_dc_value <= (dc_in && DELTA_DECODE) ? value : last_dc_value;
         end else begin
             value_out <= 0;
             run_out <= 0;

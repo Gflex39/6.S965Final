@@ -16,7 +16,9 @@ module zigzag_decoder(
     logic        state;
     logic        state1;
     logic        state2;
+    logic        state3;
     logic        swap_buffers;
+    logic        clear_buffer;
 
     logic [6:0]  wr_pos;
     logic [5:0]  wr_addr;
@@ -45,8 +47,10 @@ module zigzag_decoder(
     pipeline#(.PIPELINE_STAGES(1),.PIPELINE_WIDTH(7))  p4 (.clk_in(clk_in),.rst_in(rst_in),.signal_in({state1,wr_addr}),.signal_out({state2,wr_mask_addr}));
     pipeline#(.PIPELINE_STAGES(2),.PIPELINE_WIDTH(1))  p5 (.clk_in(clk_in),.rst_in(rst_in),.signal_in(swap_buffers),.signal_out(rd_enable));
     pipeline#(.PIPELINE_STAGES(3),.PIPELINE_WIDTH(4))  p6 (.clk_in(clk_in),.rst_in(rst_in),.signal_in({(rd_left>0),rd_pos[2:0]}),.signal_out({rd_valid,rd_pos3}));
+    pipeline#(.PIPELINE_STAGES(1),.PIPELINE_WIDTH(1))  p7 (.clk_in(clk_in),.rst_in(rst_in),.signal_in(state2),.signal_out(state3));
 
     scan_order_lut msol ( .clk_in(clk_in), .rst_in(rst_in), .x_in(wr_pos[5:0]+run_in), .x_out(wr_addr) );
+    negedge_detector n1 (.clk_in(clk_in), .rst_in(rst_in), .level_in(valid_out), .level_out(clear_buffer));
 
     logic [63:0] mask_a;
     logic [63:0] mask_b;
@@ -94,13 +98,6 @@ module zigzag_decoder(
             if (valid_in) begin // cycle0
                 state <= swap_buffers ? ~state : state;
                 wr_pos <= swap_buffers ? 0 : wr_pos + run_in + 1;
-
-                if (swap_buffers) begin
-                    case (state)
-                        WRITEA: mask_b <= 0;
-                        WRITEB: mask_a <= 0;
-                    endcase
-                end
             end
 
             if (wr_valid) begin // cycle1
@@ -136,17 +133,24 @@ module zigzag_decoder(
 
             if (rd_valid) begin // cycle3
                 valid_out <= 1;
-                column_out[11: 0] <= (state == READA) ? (mask_a[rd_pos3   ] ? doutb[11: 0] : 0) : (mask_b[rd_pos3   ] ? doutb[11: 0] : 0);
-                column_out[23:12] <= (state == READA) ? (mask_a[rd_pos3+ 8] ? doutb[23:12] : 0) : (mask_b[rd_pos3+ 8] ? doutb[23:12] : 0);
-                column_out[35:24] <= (state == READA) ? (mask_a[rd_pos3+16] ? doutb[35:24] : 0) : (mask_b[rd_pos3+16] ? doutb[35:24] : 0);
-                column_out[47:36] <= (state == READA) ? (mask_a[rd_pos3+24] ? doutb[47:36] : 0) : (mask_b[rd_pos3+24] ? doutb[47:36] : 0);
-                column_out[59:48] <= (state == READA) ? (mask_a[rd_pos3+32] ? doutb[59:48] : 0) : (mask_b[rd_pos3+32] ? doutb[59:48] : 0);
-                column_out[71:60] <= (state == READA) ? (mask_a[rd_pos3+40] ? doutb[71:60] : 0) : (mask_b[rd_pos3+40] ? doutb[71:60] : 0);
-                column_out[83:72] <= (state == READA) ? (mask_a[rd_pos3+48] ? doutb[83:72] : 0) : (mask_b[rd_pos3+48] ? doutb[83:72] : 0);
-                column_out[95:84] <= (state == READA) ? (mask_a[rd_pos3+56] ? doutb[95:84] : 0) : (mask_b[rd_pos3+56] ? doutb[95:84] : 0);
+                column_out[11: 0] <= ((state3 == READA) ? mask_a[{rd_pos3,3'b000}] : mask_b[{rd_pos3,3'b000}]) ? doutb[11: 0] : 0;
+                column_out[23:12] <= ((state3 == READA) ? mask_a[{rd_pos3,3'b001}] : mask_b[{rd_pos3,3'b001}]) ? doutb[23:12] : 0;
+                column_out[35:24] <= ((state3 == READA) ? mask_a[{rd_pos3,3'b010}] : mask_b[{rd_pos3,3'b010}]) ? doutb[35:24] : 0;
+                column_out[47:36] <= ((state3 == READA) ? mask_a[{rd_pos3,3'b011}] : mask_b[{rd_pos3,3'b011}]) ? doutb[47:36] : 0;
+                column_out[59:48] <= ((state3 == READA) ? mask_a[{rd_pos3,3'b100}] : mask_b[{rd_pos3,3'b100}]) ? doutb[59:48] : 0;
+                column_out[71:60] <= ((state3 == READA) ? mask_a[{rd_pos3,3'b101}] : mask_b[{rd_pos3,3'b101}]) ? doutb[71:60] : 0;
+                column_out[83:72] <= ((state3 == READA) ? mask_a[{rd_pos3,3'b110}] : mask_b[{rd_pos3,3'b110}]) ? doutb[83:72] : 0;
+                column_out[95:84] <= ((state3 == READA) ? mask_a[{rd_pos3,3'b111}] : mask_b[{rd_pos3,3'b111}]) ? doutb[95:84] : 0;
             end else begin
                 valid_out <= 0;
                 column_out <= 0;
+            end
+
+            if (clear_buffer) begin
+                case (state)
+                    READA: mask_a <= 0;
+                    READB: mask_b <= 0;
+                endcase
             end
          end
     end

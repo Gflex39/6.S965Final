@@ -34,27 +34,38 @@ async def send_coeff(dut, coeff, run):
 
 @cocotb.test()
 async def test(dut):
-
     await clock(dut.clk_in)
     await reset(dut.clk_in, dut.rst_in)
 
     for i in range(64):
         await send_coeff(dut, SCAN_ORDER_TABLE[i], 0)
 
+    await off(dut)
+    await ClockCycles(dut.clk_in, 16)
+
     for i in range(64):
         await send_coeff(dut, -SCAN_ORDER_TABLE[i], 0)
 
+
+    await off(dut)
+    await ClockCycles(dut.clk_in, 16)
+
     for i in range(64):
-        if SCAN_ORDER_TABLE[i] % 2 == 1:
+        if SCAN_ORDER_TABLE[i] % 2 == 0:
             await send_coeff(dut, SCAN_ORDER_TABLE[i], 0)
         else:
             await send_coeff(dut, 0, 0)
 
     await off(dut)
 
-    await ClockCycles(dut.clk_in, 8)
+    await ClockCycles(dut.clk_in, 16)
 
     await send_coeff(dut, 690, 63)
+
+    await ClockCycles(dut.clk_in, 16)
+
+    for i in range(16):
+        await send_coeff(dut, 0xaa, 3)
 
     await off(dut)
     await ClockCycles(dut.clk_in, 30)
