@@ -257,14 +257,14 @@ async def test_idct_2d(dut):
             [8, -1, -3, 1, 2, 3, -1, -1],
         ],
         [
-            [-16, 27, 41, 43, 87, 43, -33, 15],
-            [71, -10, 75, -73, -14, 34, 14, 91],
-            [83, -48, 3, 128, -72, -74, 131, 17],
-            [57, 37, -79, 24, 82, 3, -12, -69],
-            [-55, -115, 33, -17, 34, 117, 29, -67],
-            [174, -150, -76, -10, -34, 79, -119, -26],
-            [-13, -86, 80, -93, 98, -23, 5, -50],
-            [-10, 30, 54, -3, -124, -64, -90, -45],
+            [-22, -35, -50, -128, 14, 22, 79, -1],
+            [65, -138, -43, 6, 16, -25, 116, -59],
+            [-4, -66, -80, 127, 84, -40, -7, 95],
+            [-69, 82, -90, 63, -90, 111, -14, -84],
+            [28, -41, -58, -105, 45, -56, -22, 45],
+            [-79, -83, 11, 151, -46, 110, -37, 125],
+            [-64, -69, -19, 64, -2, -126, -146, 67],
+            [71, 84, 49, 161, 84, -110, 14, 8],
         ],
     ]
 
@@ -315,14 +315,28 @@ async def input_data(dut, value):
     for i in range(8):
         input = [value[j][i] for j in range(8)]
 
-        dut.idct_in_0.value = input[0]
-        dut.idct_in_1.value = input[1]
-        dut.idct_in_2.value = input[2]
-        dut.idct_in_3.value = input[3]
-        dut.idct_in_4.value = input[4]
-        dut.idct_in_5.value = input[5]
-        dut.idct_in_6.value = input[6]
-        dut.idct_in_7.value = input[7]
+        # Combine inputs into 96-bit value
+        # Each input is 12-bit signed integer
+        combined_input = 0
+        for j in range(8):
+            # Mask to 12 bits and shift into position
+            val = input[j] & 0xFFF
+            combined_input |= val << (12 * (7 - j))
+
+        print("Combined input: ", combined_input)
+
+        dut.idct_in.value = combined_input
+
+        # dut.idct_in_0.value = input[0]
+        # dut.idct_in_1.value = input[1]
+        # dut.idct_in_2.value = input[2]
+        # dut.idct_in_3.value = input[3]
+        # dut.idct_in_4.value = input[4]
+        # dut.idct_in_5.value = input[5]
+        # dut.idct_in_6.value = input[6]
+        # dut.idct_in_7.value = input[7]
+
+        print("Combined input: ", combined_input)
 
         print(
             f"Input {i}: {input[0]}, {input[1]}, {input[2]}, {input[3]}, {input[4]}, {input[5]}, {input[6]}, {input[7]}"
