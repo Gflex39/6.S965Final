@@ -4,14 +4,7 @@ module idct_2d #(
     input logic rst_in,
     input logic clk_in,
 
-    input logic [WIDTH-1:0] idct_in_0,
-    input logic [WIDTH-1:0] idct_in_1,
-    input logic [WIDTH-1:0] idct_in_2,
-    input logic [WIDTH-1:0] idct_in_3,
-    input logic [WIDTH-1:0] idct_in_4,
-    input logic [WIDTH-1:0] idct_in_5,
-    input logic [WIDTH-1:0] idct_in_6,
-    input logic [WIDTH-1:0] idct_in_7,
+    input logic [WIDTH*8-1:0] idct_in,
 
     input logic valid_in,
 
@@ -27,6 +20,9 @@ module idct_2d #(
     output logic valid_out,
     output logic final_out
 );
+  logic [WIDTH-1:0]
+      idct_in_0, idct_in_1, idct_in_2, idct_in_3, idct_in_4, idct_in_5, idct_in_6, idct_in_7;
+
   logic [WIDTH-1:0]
       temp_idct_1d_out_0,
       temp_idct_1d_out_1,
@@ -48,6 +44,19 @@ module idct_2d #(
   logic [WIDTH-1:0]
       mtb_out_0, mtb_out_1, mtb_out_2, mtb_out_3, mtb_out_4, mtb_out_5, mtb_out_6, mtb_out_7;
   logic mtb_valid_in, mtb_valid_out, mtb_final_row_out;
+
+  // Replace the always_comb block with a generate block
+  genvar i;
+  generate
+    assign idct_in_0 = idct_in[WIDTH*8-1-:WIDTH];
+    assign idct_in_1 = idct_in[WIDTH*7-1-:WIDTH];
+    assign idct_in_2 = idct_in[WIDTH*6-1-:WIDTH];
+    assign idct_in_3 = idct_in[WIDTH*5-1-:WIDTH];
+    assign idct_in_4 = idct_in[WIDTH*4-1-:WIDTH];
+    assign idct_in_5 = idct_in[WIDTH*3-1-:WIDTH];
+    assign idct_in_6 = idct_in[WIDTH*2-1-:WIDTH];
+    assign idct_in_7 = idct_in[WIDTH*1-1-:WIDTH];
+  endgenerate
 
   idct_1d idct_1d_inst_0 (
       .rst_in(rst_in),
