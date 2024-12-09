@@ -1,6 +1,3 @@
-`timescale 1ns / 1ps
-`default_nettype none
-
 module pipeline #(
     parameter PIPELINE_STAGES = 1,
     parameter PIPELINE_WIDTH  = 1

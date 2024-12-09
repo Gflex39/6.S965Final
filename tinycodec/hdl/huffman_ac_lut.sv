@@ -1,6 +1,3 @@
-`timescale 1ns / 1ps
-`default_nettype none
-
 `ifdef SYNTHESIS
 `define FPATH(X) `"X`"
 `else /* ! SYNTHESIS */

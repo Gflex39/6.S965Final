@@ -1,6 +1,3 @@
-`timescale 1ns / 1ps
-`default_nettype none
-
 module entropy_decoder#(
     parameter DELTA_DECODE = 1
 )
@@ -15,7 +12,6 @@ module entropy_decoder#(
 
     output logic signed [11:0] value_out,
     output logic [4:0] run_out,
-    output logic dc_out,
     output logic valid_out
 );
     logic signed [11:0] value;
@@ -27,13 +23,11 @@ module entropy_decoder#(
             value = (dc_in && DELTA_DECODE) ? (value + last_dc_value) : value;
             value_out <= value;
             run_out <= run_in;
-            dc_out <= dc_in;
             valid_out <= 1;
             last_dc_value <= (dc_in) ? value : last_dc_value;
         end else begin
             value_out <= 0;
             run_out <= 0;
-            dc_out <= 0;
             valid_out <= 0;
             last_dc_value <= 0;
         end

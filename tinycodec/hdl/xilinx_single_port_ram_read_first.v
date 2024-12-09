@@ -1,6 +1,3 @@
-`timescale 1ns / 1ps
-`default_nettype none
-
 //  Xilinx Single Port Read First RAM
 //  This code implements a parameterizable single-port read-first memory where when data
 //  is written to the memory, the output reflects the prior contents of the memory location.

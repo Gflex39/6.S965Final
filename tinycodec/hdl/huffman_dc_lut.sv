@@ -1,6 +1,3 @@
-`timescale 1ns / 1ps
-`default_nettype none
-
 module huffman_dc_lut(
     input wire clk_in,
     input wire rst_in,
