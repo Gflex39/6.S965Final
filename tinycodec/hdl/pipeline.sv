@@ -23,4 +23,3 @@ module pipeline #(
     end
   end
 endmodule
-`default_nettype wire

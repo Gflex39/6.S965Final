@@ -1,4 +1,5 @@
-// TODO(kosinw): change run_out to be 5 bits to 6 bits (otherwise this mod is fked)
+// TODO(kosinw): change run_out to be 6 bits (otherwise this mod is fked)
+// TODO(kosinw): maybe rewrite this whole thing using pipeline
 
 module huffman_decoder(
     input wire clk_in,
