@@ -12,11 +12,11 @@ module jpeg_decoder (
   logic        [ 5:0] run_mhd_med;
   logic        [ 4:0] size_mhd_med;
   logic               dc_mhd_med;
-  logic               valid_mhd;
+  logic               valid_mhd_med;
 
-  logic signed [11:0] value_mhd_mzd;
-  logic        [ 5:0] run_mhd_mzd;
-  logic               valid_mhd_mzd;
+  logic signed [11:0] value_med_mzd;
+  logic        [ 5:0] run_med_mzd;
+  logic               valid_med_mzd;
 
   logic        [95:0] column_mzd_miq;
   logic               valid_mzd_miq;
@@ -52,11 +52,11 @@ module jpeg_decoder (
       .rst_in(rst_in),
       .serial_in(serial_in),
       .valid_in(valid_in),
-      .value_out(value_mhd_mzd),
+      .value_out(value_mhd_med),
       .run_out(run_mhd_med),
       .size_out(size_mhd_med),
       .dc_out(dc_mhd_med),
-      .valid_out(valid_mhd)
+      .valid_out(valid_mhd_med)
   );
 
   entropy_decoder med (
@@ -65,19 +65,19 @@ module jpeg_decoder (
       .value_in(value_mhd_med),
       .run_in(run_mhd_med),
       .size_in(size_mhd_med),
-      .valid_in(valid_mhd),
+      .valid_in(valid_mhd_med),
       .dc_in(dc_mhd_med),
-      .value_out(value_mhd_mzd),
-      .run_out(run_mhd_mzd),
-      .valid_out(valid_mhd_mzd)
+      .value_out(value_med_mzd),
+      .run_out(run_med_mzd),
+      .valid_out(valid_med_mzd)
   );
 
   zigzag_decoder mzd (
       .clk_in(clk_in),
       .rst_in(rst_in),
-      .value_in(value_mhd_mzd),
-      .run_in(run_mhd_mzd),
-      .valid_in(valid_mhd_mzd),
+      .value_in(value_med_mzd),
+      .run_in(run_med_mzd),
+      .valid_in(valid_med_mzd),
       .column_out(column_mzd_miq),
       .valid_out(valid_mzd_miq)
   );

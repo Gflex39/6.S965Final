@@ -27,7 +27,7 @@ module idct_2d #(
     output logic valid_out,
     output logic final_out
 );
-  logic [WIDTH-1:0]
+  logic signed [WIDTH-1:0]
       temp_idct_1d_out_0,
       temp_idct_1d_out_1,
       temp_idct_1d_out_2,
@@ -36,7 +36,7 @@ module idct_2d #(
       temp_idct_1d_out_5,
       temp_idct_1d_out_6,
       temp_idct_1d_out_7;
-  logic [WIDTH-1:0]
+  logic signed [WIDTH-1:0]
       temp_idct_1d_in_0,
       temp_idct_1d_in_1,
       temp_idct_1d_in_2,
@@ -102,14 +102,14 @@ module idct_2d #(
   );
 
   always_comb begin : assign_outputs
-    idct_out_0 = temp_idct_1d_out_0;
-    idct_out_1 = temp_idct_1d_out_1;
-    idct_out_2 = temp_idct_1d_out_2;
-    idct_out_3 = temp_idct_1d_out_3;
-    idct_out_4 = temp_idct_1d_out_4;
-    idct_out_5 = temp_idct_1d_out_5;
-    idct_out_6 = temp_idct_1d_out_6;
-    idct_out_7 = temp_idct_1d_out_7;
+    idct_out_0 = temp_idct_1d_out_0+128;
+    idct_out_1 = temp_idct_1d_out_1+128;
+    idct_out_2 = temp_idct_1d_out_2+128;
+    idct_out_3 = temp_idct_1d_out_3+128;
+    idct_out_4 = temp_idct_1d_out_4+128;
+    idct_out_5 = temp_idct_1d_out_5+128;
+    idct_out_6 = temp_idct_1d_out_6+128;
+    idct_out_7 = temp_idct_1d_out_7+128;
   end
 
   always_ff @(posedge clk_in) begin

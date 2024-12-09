@@ -8,24 +8,24 @@ module idct_1d #(
     input logic clk_in,
 
     // Input is a packed array of 8 elements, each (WIDTH+4) bits wide
-    input logic [WIDTH-1:0] idct_in_0,
-    input logic [WIDTH-1:0] idct_in_1,
-    input logic [WIDTH-1:0] idct_in_2,
-    input logic [WIDTH-1:0] idct_in_3,
-    input logic [WIDTH-1:0] idct_in_4,
-    input logic [WIDTH-1:0] idct_in_5,
-    input logic [WIDTH-1:0] idct_in_6,
-    input logic [WIDTH-1:0] idct_in_7,
+    input logic signed [WIDTH-1:0] idct_in_0,
+    input logic signed [WIDTH-1:0] idct_in_1,
+    input logic signed [WIDTH-1:0] idct_in_2,
+    input logic signed [WIDTH-1:0] idct_in_3,
+    input logic signed [WIDTH-1:0] idct_in_4,
+    input logic signed [WIDTH-1:0] idct_in_5,
+    input logic signed [WIDTH-1:0] idct_in_6,
+    input logic signed [WIDTH-1:0] idct_in_7,
 
     // Output is a packed array of 8 elements, each WIDTH bits wide
-    output logic [WIDTH-1:0] idct_out_0,
-    output logic [WIDTH-1:0] idct_out_1,
-    output logic [WIDTH-1:0] idct_out_2,
-    output logic [WIDTH-1:0] idct_out_3,
-    output logic [WIDTH-1:0] idct_out_4,
-    output logic [WIDTH-1:0] idct_out_5,
-    output logic [WIDTH-1:0] idct_out_6,
-    output logic [WIDTH-1:0] idct_out_7
+    output logic signed [WIDTH-1:0] idct_out_0,
+    output logic signed [WIDTH-1:0] idct_out_1,
+    output logic signed [WIDTH-1:0] idct_out_2,
+    output logic signed [WIDTH-1:0] idct_out_3,
+    output logic signed [WIDTH-1:0] idct_out_4,
+    output logic signed [WIDTH-1:0] idct_out_5,
+    output logic signed [WIDTH-1:0] idct_out_6,
+    output logic signed [WIDTH-1:0] idct_out_7
 );
 
   localparam signed [15:0] A = 11585;  // cos(pi / 4) * 2^14;

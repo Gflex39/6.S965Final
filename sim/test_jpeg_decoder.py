@@ -11,7 +11,7 @@ import os
 import sys
 from pathlib import Path
 
-from model import encode_block, inverse_transform
+from model import encode_block, transform, quantize, zigzag
 
 async def reset(clk, rst, cycles=2):
     rst.value = 1
@@ -21,7 +21,7 @@ async def reset(clk, rst, cycles=2):
 async def clock(clk):
     await cocotb.start(Clock(clk, 10, 'ns').start(start_high=True))
 
-async def feed_bit(dut, bit, delay):
+async def feed_bit(dut, bit):
     await FallingEdge(dut.clk_in)
 
     dut.serial_in.value = bit
@@ -40,20 +40,28 @@ async def test(dut):
     await clock(dut.clk_in)
     await reset(dut.clk_in, dut.rst_in)
 
-    B = np.array([
-        [2047,0,0,1,512,0,0,1],
-        [0,0,0,1,0,0,0,-1],
-        [0,0,0,1,0,0,0,-1],
-        [0,0,0,1,0,0,0,-1],
-        [0,-23,0,1,0,0,0,-1],
-        [0,0,0,0,0,0,0,0],
-        [0,34,0,0,245,0,0,0],
-        [0,0,0,0,0,0,0,9]
-    ]).flatten()
+    A = np.array([
+        [ 52,  55,  61,  66,  70,  61,  64,  73],
+        [ 63,  59,  55,  90, 109,  85,  89,  72],
+        [ 62,  59,  68, 113, 144, 104,  66,  73],
+        [ 63,  58,  71, 122, 154, 106,  70,  69],
+        [ 67,  61,  68, 104, 126,  88,  68,  70],
+        [ 79,  65,  60,  70,  77,  68,  58,  75],
+        [ 85,  71,  64,  59,  55,  61,  65,  83],
+        [ 87,  79,  69,  68,  65,  76,  78,  94]
+    ])
+    B = A.copy()
 
-    print(f"expected: {inverse_transform(B)}")
+    C = transform(B)
+    D = quantize(C)
+    E = zigzag(D)
 
-    await send_block(dut, B)
+    print(f"{A.reshape((8,8))}")
+    print(f"{C.reshape((8,8)).astype(int)}")
+    print(f"{D.reshape((8,8))}")
+    print(f"{E.reshape((8,8))}")
+
+    await send_block(dut, E)
 
     await off(dut)
     await ClockCycles(dut.clk_in, 300)
@@ -70,7 +78,7 @@ def main():
     runner = get_runner(sim)
     runner.build(
         sources=sources,
-        hdl_toplevel="huffman_decoder",
+        hdl_toplevel="jpeg_decoder",
         always=True,
         build_args=build_test_args,
         parameters=parameters,
@@ -79,8 +87,8 @@ def main():
     )
     run_test_args = []
     runner.test(
-        hdl_toplevel="huffman_decoder",
-        test_module="test_huffman_decoder",
+        hdl_toplevel="jpeg_decoder",
+        test_module="test_jpeg_decoder",
         test_args=run_test_args,
         waves=True
     )

@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.fftpack import dctn
 
 DC_TABLE = [
     (0, [0, 0]),
@@ -411,8 +412,6 @@ def get_size(x):
     return len(np.binary_repr(np.abs(x)))
 
 def encode_block(x: np.ndarray) -> list[int]:
-    assert x.shape == (8,8)
-
     x = x.flatten()
     l = []
 
@@ -443,3 +442,29 @@ def encode_block(x: np.ndarray) -> list[int]:
 
     return l
 
+def zigzag(y: np.ndarray) -> np.ndarray:
+    z = np.zeros(64, dtype=int)
+
+    for j in range(len(y)):
+        z[j] = int(y[SCAN_ORDER_TABLE[j]])
+
+    return z
+
+def transform(x: np.ndarray) -> np.ndarray:
+    assert x.shape == (8,8)
+
+    x -= 128
+    y = dctn(x, norm='ortho')
+
+    y = y.flatten()
+
+    return y
+
+
+def quantize(y: np.ndarray) -> np.ndarray:
+    q = np.zeros(64)
+
+    for i in range(len(y)):
+        q[i] = np.round(y[i] / QUANTIZATION_TABLE[i])
+
+    return q.astype(int)
