@@ -177,7 +177,7 @@ class AXISDriver(BusDriver):
 
     async def _send_single(self, contents):
         await FallingEdge(self.clock)
-        print("Sending data", type(contents["data"]))
+        # print("Sending data", type(contents["data"]))
 
         self.bus.axis_tdata.value = contents["data"]
         self.bus.axis_tstrb.value = contents["strb"]
@@ -266,45 +266,60 @@ async def test_idct_2d_dma(dut):
     y_channel, u_channel, v_channel = get_yuv_frame("../../scripts/assets/dog.jpg")
 
     print("\n\n\n")
-    print("Channels: ", y_channel, u_channel, v_channel)
+    print("Channels: ", y_channel[:4])
 
-    channels = [y_channel, u_channel, v_channel]
+    channels = [y_channel]
+
+    print("y_channel len:", len(y_channel))
+    print("u_channel len:", len(u_channel))
+    print("v_channel len:", len(v_channel))
+
+    matches = []
+
+    cnt = 0
+
+    # Prepping for burst sending
+
+    burst_data = []
 
     for i in range(len(channels)):
         channel = channels[i]
         for j in range(0, len(channel), 4):
             values = channel[j : j + 4]
-            data = {
-                "type": "single",
-                "contents": {
-                    "data": combine_to_32bit(values),
-                    "last": (
-                        1 if j + 4 >= len(channel) and i == len(channels) - 1 else 0
-                    ),
-                    "strb": 15,
-                },
-            }
-            ind.append(data)
-        # for j in range(len(channel)):
-        #     value = int(channel[j])
-        #     data = {
-        #         "type": "single",
-        #         "contents": {
-        #             "data": value,
-        #             "last": (
-        #                 1 if j == len(channel) - 1 and i == len(channels) - 1 else 0
-        #             ),
-        #             "strb": 15,
-        #         },
-        #     }
-        #     ind.append(data)
+            burst_data.append(combine_to_32bit(values))
+
+            if cnt == 14720 - 1:
+                matches.append(combine_to_32bit(values))
+                cnt = 0
+            else:
+                cnt += 1
+
+    data = {"type": "burst", "contents": {"data": burst_data}}
+    ind.append(data)
+
+    # for i in range(len(channels)):
+    #     channel = channels[i]
+    #     for j in range(0, len(channel), 4):
+    #         values = channel[j : j + 4]
+    #         data = {
+    #             "type": "single",
+    #             "contents": {
+    #                 "data": combine_to_32bit(values),
+    #                 "last": (
+    #                     1 if j + 4 >= len(channel) and i == len(channels) - 1 else 0
+    #                 ),
+    #                 "strb": 15,
+    #             },
+    #         }
+    #         ind.append(data)
+
+    print(matches)
 
     # # Burst
     # data = {"type": "burst", "contents": {"data": np.array([0] * 14 + [1])}}
     # ind.append(data)
 
-    # # Back pressure test
-    await ClockCycles(dut.s00_axis_aclk, 706660)
+    # Back pressure test
     # await set_ready(dut, 0)
     # await ClockCycles(dut.s00_axis_aclk, 300)
     # await set_ready(dut, 1)
@@ -313,6 +328,8 @@ async def test_idct_2d_dma(dut):
     # await ClockCycles(dut.s00_axis_aclk, 10)
     # await set_ready(dut, 1)
     # await ClockCycles(dut.s00_axis_aclk, 2000)
+
+    await ClockCycles(dut.s00_axis_aclk, 117881)
     print(inm.transactions)
     print(outm.transactions)
     assert inm.transactions == outm.transactions, f"Transaction Count doesn't match! :/"

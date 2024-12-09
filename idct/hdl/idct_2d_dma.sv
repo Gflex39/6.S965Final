@@ -20,11 +20,12 @@ module idct_2d_dma #(
     output logic [C_M00_AXIS_TDATA_WIDTH-1 : 0] m00_axis_tdata,
     output logic [(C_M00_AXIS_TDATA_WIDTH/8)-1:0] m00_axis_tstrb
 );
-  localparam integer TOTAL_DATA_COUNT = (640 / 8) * (368 / 8) * 4 * 3;
+  localparam integer TOTAL_DATA_COUNT = 14720;
 
-  logic [15:0] data_ctr;  // 44160= (640 / 8) * (368 / 8) * 4 * 3. Total number of blocks * 4 rows / block * 3 channels
+  logic [17:0] data_ctr;  // 44160= (640 / 8) * (368 / 8) * 4 * 3. Total number of blocks * 4 rows / block * 3 channels
 
   assign s00_axis_tready = m00_axis_tready;
+  assign m00_axis_tdata  = s00_axis_tdata;
 
   always_ff @(posedge s00_axis_aclk) begin : DMA_PROCESS
     if (~s00_axis_aresetn) begin
@@ -35,8 +36,6 @@ module idct_2d_dma #(
     end else begin
       // TODO: Implement DMA
       if (m00_axis_tready && s00_axis_tvalid) begin
-        m00_axis_tdata <= s00_axis_tdata;
-
         data_ctr <= data_ctr + 1;
 
         if (data_ctr == TOTAL_DATA_COUNT - 1) begin

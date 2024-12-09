@@ -1,6 +1,6 @@
 <testsuites name="results">
   <testsuite name="all" package="all">
-    <property name="random_seed" value="1733759357" />
-    <testcase name="test_idct_2d_dma" classname="test_idct_2d_dma" file="C:\Users\hranw\Documents\GitHub\6.S965Final\idct\sim\test_idct_2d_dma.py" lineno="254" time="114.05896401405334" sim_time_ns="7066630.001" ratio_time="61955.93710748865" />
+    <property name="random_seed" value="1733778353" />
+    <testcase name="test_idct_2d_dma" classname="test_idct_2d_dma" file="C:\Users\hranw\Documents\GitHub\6.S965Final\idct\sim\test_idct_2d_dma.py" lineno="254" time="117.27689337730408" sim_time_ns="1178840.001" ratio_time="10051.766951290458" />
   </testsuite>
 </testsuites>

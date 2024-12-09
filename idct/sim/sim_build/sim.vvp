@@ -8,9 +8,9 @@
 :vpi_module "C:\iverilog\lib\ivl\v2005_math.vpi";
 :vpi_module "C:\iverilog\lib\ivl\va_math.vpi";
 :vpi_module "C:\iverilog\lib\ivl\v2009.vpi";
-S_000001a34ebdc850 .scope package, "$unit" "$unit" 2 1;
+S_000002029b342ca0 .scope package, "$unit" "$unit" 2 1;
  .timescale -9 -12;
-S_000001a34ec62ca0 .scope module, "idct_2d_dma" "idct_2d_dma" 3 1;
+S_000002029b342e30 .scope module, "idct_2d_dma" "idct_2d_dma" 3 1;
  .timescale -9 -12;
     .port_info 0 /INPUT 1 "s00_axis_aclk";
     .port_info 1 /INPUT 1 "s00_axis_aresetn";
@@ -26,98 +26,97 @@ S_000001a34ec62ca0 .scope module, "idct_2d_dma" "idct_2d_dma" 3 1;
     .port_info 11 /OUTPUT 1 "m00_axis_tlast";
     .port_info 12 /OUTPUT 32 "m00_axis_tdata";
     .port_info 13 /OUTPUT 4 "m00_axis_tstrb";
-P_000001a34ec62e30 .param/l "C_M00_AXIS_TDATA_WIDTH" 0 3 3, +C4<00000000000000000000000000100000>;
-P_000001a34ec62e68 .param/l "C_S00_AXIS_TDATA_WIDTH" 0 3 2, +C4<00000000000000000000000000100000>;
-P_000001a34ec62ea0 .param/l "TOTAL_DATA_COUNT" 1 3 23, +C4<00000000000000001010110010000000>;
-o000001a34ec9c0a8 .functor BUFZ 1, C4<z>; HiZ drive
-L_000001a34ec87550 .functor BUFZ 1, o000001a34ec9c0a8, C4<0>, C4<0>, C4<0>;
-v000001a34ec633a0_0 .var "data_ctr", 15 0;
-o000001a34ec9bfe8 .functor BUFZ 1, C4<z>; HiZ drive
-v000001a34ec631e0_0 .net "m00_axis_aclk", 0 0, o000001a34ec9bfe8;  0 drivers
-o000001a34ec9c018 .functor BUFZ 1, C4<z>; HiZ drive
-v000001a34ec635c0_0 .net "m00_axis_aresetn", 0 0, o000001a34ec9c018;  0 drivers
-v000001a34ec62fd0_0 .var "m00_axis_tdata", 31 0;
-v000001a34ec63070_0 .var "m00_axis_tlast", 0 0;
-v000001a34ec9af90_0 .net "m00_axis_tready", 0 0, o000001a34ec9c0a8;  0 drivers
-v000001a34ec9b030_0 .var "m00_axis_tstrb", 3 0;
-v000001a34ec87fe0_0 .var "m00_axis_tvalid", 0 0;
-o000001a34ec9c138 .functor BUFZ 1, C4<z>; HiZ drive
-v000001a34ec88080_0 .net "s00_axis_aclk", 0 0, o000001a34ec9c138;  0 drivers
-o000001a34ec9c168 .functor BUFZ 1, C4<z>; HiZ drive
-v000001a34ec93420_0 .net "s00_axis_aresetn", 0 0, o000001a34ec9c168;  0 drivers
-o000001a34ec9c198 .functor BUFZ 32, C4<zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz>; HiZ drive
-v000001a34ec934c0_0 .net "s00_axis_tdata", 31 0, o000001a34ec9c198;  0 drivers
-o000001a34ec9c1c8 .functor BUFZ 1, C4<z>; HiZ drive
-v000001a34ec93560_0 .net "s00_axis_tlast", 0 0, o000001a34ec9c1c8;  0 drivers
-v000001a34ec93600_0 .net "s00_axis_tready", 0 0, L_000001a34ec87550;  1 drivers
-o000001a34ec9c228 .functor BUFZ 4, C4<zzzz>; HiZ drive
-v000001a34ec936a0_0 .net "s00_axis_tstrb", 3 0, o000001a34ec9c228;  0 drivers
-o000001a34ec9c258 .functor BUFZ 1, C4<z>; HiZ drive
-v000001a34ec93740_0 .net "s00_axis_tvalid", 0 0, o000001a34ec9c258;  0 drivers
-E_000001a34ec86b00 .event posedge, v000001a34ec88080_0;
-S_000001a34ec9ae00 .scope begin, "DMA_PROCESS" "DMA_PROCESS" 3 29, 3 29 0, S_000001a34ec62ca0;
+P_000002029b366050 .param/l "C_M00_AXIS_TDATA_WIDTH" 0 3 3, +C4<00000000000000000000000000100000>;
+P_000002029b366088 .param/l "C_S00_AXIS_TDATA_WIDTH" 0 3 2, +C4<00000000000000000000000000100000>;
+P_000002029b3660c0 .param/l "TOTAL_DATA_COUNT" 1 3 23, +C4<00000000000000000011100110000000>;
+o000002029b37c0c8 .functor BUFZ 1, C4<z>; HiZ drive
+L_000002029b366810 .functor BUFZ 1, o000002029b37c0c8, C4<0>, C4<0>, C4<0>;
+o000002029b37c1b8 .functor BUFZ 32, C4<zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz>; HiZ drive
+L_000002029b3661f0 .functor BUFZ 32, o000002029b37c1b8, C4<00000000000000000000000000000000>, C4<00000000000000000000000000000000>, C4<00000000000000000000000000000000>;
+v000002029b3433a0_0 .var "data_ctr", 17 0;
+o000002029b37c008 .functor BUFZ 1, C4<z>; HiZ drive
+v000002029b3431e0_0 .net "m00_axis_aclk", 0 0, o000002029b37c008;  0 drivers
+o000002029b37c038 .functor BUFZ 1, C4<z>; HiZ drive
+v000002029b3435c0_0 .net "m00_axis_aresetn", 0 0, o000002029b37c038;  0 drivers
+v000002029b37b040_0 .net "m00_axis_tdata", 31 0, L_000002029b3661f0;  1 drivers
+v000002029b37b0e0_0 .var "m00_axis_tlast", 0 0;
+v000002029b32c890_0 .net "m00_axis_tready", 0 0, o000002029b37c0c8;  0 drivers
+v000002029b32c930_0 .var "m00_axis_tstrb", 3 0;
+v000002029b367150_0 .var "m00_axis_tvalid", 0 0;
+o000002029b37c158 .functor BUFZ 1, C4<z>; HiZ drive
+v000002029b3671f0_0 .net "s00_axis_aclk", 0 0, o000002029b37c158;  0 drivers
+o000002029b37c188 .functor BUFZ 1, C4<z>; HiZ drive
+v000002029b367290_0 .net "s00_axis_aresetn", 0 0, o000002029b37c188;  0 drivers
+v000002029b374650_0 .net "s00_axis_tdata", 31 0, o000002029b37c1b8;  0 drivers
+o000002029b37c1e8 .functor BUFZ 1, C4<z>; HiZ drive
+v000002029b3746f0_0 .net "s00_axis_tlast", 0 0, o000002029b37c1e8;  0 drivers
+v000002029b374790_0 .net "s00_axis_tready", 0 0, L_000002029b366810;  1 drivers
+o000002029b37c248 .functor BUFZ 4, C4<zzzz>; HiZ drive
+v000002029b374830_0 .net "s00_axis_tstrb", 3 0, o000002029b37c248;  0 drivers
+o000002029b37c278 .functor BUFZ 1, C4<z>; HiZ drive
+v000002029b3748d0_0 .net "s00_axis_tvalid", 0 0, o000002029b37c278;  0 drivers
+E_000002029b378b50 .event posedge, v000002029b3671f0_0;
+S_000002029b37aeb0 .scope begin, "DMA_PROCESS" "DMA_PROCESS" 3 30, 3 30 0, S_000002029b342e30;
  .timescale -9 -12;
-S_000001a34ec9ac70 .scope module, "cocotb_iverilog_dump" "cocotb_iverilog_dump" 4 1;
+S_000002029b37ad20 .scope module, "cocotb_iverilog_dump" "cocotb_iverilog_dump" 4 1;
  .timescale -9 -12;
-    .scope S_000001a34ec62ca0;
+    .scope S_000002029b342e30;
 T_0 ;
-    %wait E_000001a34ec86b00;
-    %fork t_1, S_000001a34ec9ae00;
+    %wait E_000002029b378b50;
+    %fork t_1, S_000002029b37aeb0;
     %jmp t_0;
-    .scope S_000001a34ec9ae00;
+    .scope S_000002029b37aeb0;
 t_1 ;
-    %load/vec4 v000001a34ec93420_0;
+    %load/vec4 v000002029b367290_0;
     %inv;
     %flag_set/vec4 8;
     %jmp/0xz  T_0.0, 8;
-    %pushi/vec4 0, 0, 16;
-    %assign/vec4 v000001a34ec633a0_0, 0;
+    %pushi/vec4 0, 0, 18;
+    %assign/vec4 v000002029b3433a0_0, 0;
     %pushi/vec4 0, 0, 1;
-    %assign/vec4 v000001a34ec63070_0, 0;
+    %assign/vec4 v000002029b37b0e0_0, 0;
     %pushi/vec4 1, 0, 4;
-    %assign/vec4 v000001a34ec9b030_0, 0;
+    %assign/vec4 v000002029b32c930_0, 0;
     %jmp T_0.1;
 T_0.0 ;
-    %load/vec4 v000001a34ec9af90_0;
+    %load/vec4 v000002029b32c890_0;
     %flag_set/vec4 9;
     %flag_get/vec4 9;
     %jmp/0 T_0.4, 9;
-    %load/vec4 v000001a34ec93740_0;
+    %load/vec4 v000002029b3748d0_0;
     %and;
 T_0.4;
     %flag_set/vec4 8;
     %jmp/0xz  T_0.2, 8;
-    %load/vec4 v000001a34ec934c0_0;
-    %assign/vec4 v000001a34ec62fd0_0, 0;
-    %load/vec4 v000001a34ec633a0_0;
-    %addi 1, 0, 16;
-    %assign/vec4 v000001a34ec633a0_0, 0;
-    %load/vec4 v000001a34ec633a0_0;
+    %load/vec4 v000002029b3433a0_0;
+    %addi 1, 0, 18;
+    %assign/vec4 v000002029b3433a0_0, 0;
+    %load/vec4 v000002029b3433a0_0;
     %pad/u 32;
-    %cmpi/e 44159, 0, 32;
+    %cmpi/e 14719, 0, 32;
     %jmp/0xz  T_0.5, 4;
     %pushi/vec4 1, 0, 1;
-    %assign/vec4 v000001a34ec63070_0, 0;
-    %pushi/vec4 0, 0, 16;
-    %assign/vec4 v000001a34ec633a0_0, 0;
+    %assign/vec4 v000002029b37b0e0_0, 0;
+    %pushi/vec4 0, 0, 18;
+    %assign/vec4 v000002029b3433a0_0, 0;
     %jmp T_0.6;
 T_0.5 ;
     %pushi/vec4 0, 0, 1;
-    %assign/vec4 v000001a34ec63070_0, 0;
+    %assign/vec4 v000002029b37b0e0_0, 0;
 T_0.6 ;
 T_0.2 ;
-    %load/vec4 v000001a34ec93740_0;
-    %assign/vec4 v000001a34ec87fe0_0, 0;
+    %load/vec4 v000002029b3748d0_0;
+    %assign/vec4 v000002029b367150_0, 0;
 T_0.1 ;
     %end;
-    .scope S_000001a34ec62ca0;
+    .scope S_000002029b342e30;
 t_0 %join;
     %jmp T_0;
     .thread T_0;
-    .scope S_000001a34ec9ac70;
+    .scope S_000002029b37ad20;
 T_1 ;
     %vpi_call/w 4 3 "$dumpfile", "C:/Users/hranw/Documents/GitHub/6.S965Final/idct/sim/sim_build/idct_2d_dma.fst" {0 0 0};
-    %vpi_call/w 4 4 "$dumpvars", 32'sb00000000000000000000000000000000, S_000001a34ec62ca0 {0 0 0};
+    %vpi_call/w 4 4 "$dumpvars", 32'sb00000000000000000000000000000000, S_000002029b342e30 {0 0 0};
     %end;
     .thread T_1;
 # The file index is used to find the file name in the following table.
