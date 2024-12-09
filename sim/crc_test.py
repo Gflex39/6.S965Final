@@ -60,6 +60,7 @@ class EtherDriver(BusDriver):
     self._signals = ['axiiv','axiid']
     BusDriver.__init__(self, dut, name, clk)
     self.clock = clk
+    self.dut=dut
     self.bus.axiid.value = 0
     self.bus.axiiv.value = 0
 
@@ -77,6 +78,9 @@ class EtherDriver(BusDriver):
 
     self.bus.axiiv.value = 0
     self.bus.axiid.value = 0
+    await clock(self.dut.clk)
+    await reset(self.dut.clk, self.dut.rst)
+    await clock(self.dut.clk)
 
 class EthernetTester:
     def __init__(self, dut_entity: SimHandleBase, debug=False):
@@ -109,26 +113,42 @@ async def test(dut):
     string='11011110101011011011111011101111'
                                                                                                                                                                                     
     packets=[
-       ['11011110', '10101101', '10111110', '11101111', '11011110', '11011110', '10111110', '11101111', '11011110', '10101101', '11111110', '11111110', '00000001', '00000011']
+       ['11011110', '10101101', '10111110', '11101111', '11011110', '11011110', '10111110', '11101111', '11011110', '10101101', '11111110', '11111110', '00000001', '00000011'],
+       ['00000001']*46,
+       ['01000010', '10000110', '01001110', '01001110', '10011110', '10000100', '00000100', '01000010', '01001110', '10100110', '10000110', '11010110', '01100110', '10000110', '11001110', '00101110', '00000100', '00101110', '10010110', '10110110', '10100110']
     ]                                                                                           #['00100111']+['11010011']+['10110010']+['10001101']
                                                                                                 #['10101110']+['11001110']+['00100001']+['10010001']
     for packet in packets:
         # print(print(int("".join(packet[:-4]),2)))
-        print(hex(int("".join(packet),2)))
+        # print(hex(int("".join(packet),2)))
+
+        
+        # print("3 different FCS")
+        # print(hex(int(crc32_calculator(int("".join(packet),2)),2)))
         network_packet="".join([normal_to_network(byte) for byte in packet])
+        # print(hex(int(network_packet,2)))
         fcs=crc32_calculator(int(network_packet,2))
         print(hex(int(fcs,2)))
         if len(fcs)%8!=0:
             fcs="0"*(8-(len(fcs))%8)+fcs
         fcs=[fcs[8*i:8*i+8] for i in range(len(fcs)//8)]
+        # print(len(fcs))
+        # print()
+        # t=hex(int("".join(fcs),2))
+
+        # print(f"FCS is {t}")
+        print(hex(int(network_packet,2)))
+        print(hex(int("".join(packet),2)))
+        
         fcs=[i[::-1] for i in fcs]
+        print(hex(int("".join(fcs),2)))
         network_packet="".join([normal_to_dibit_network(byte) for byte in packet+fcs])
 
         di_bits=[network_packet[2*i:2*i+2] for i in range(len(network_packet)//2)]
         tester.input_driver.append({ "type": "burst", "contents": { "data": [int(i,2) for i in di_bits] } })
 
     await ClockCycles(dut.clk, 400)
-    print(hex(int(dut.axiod.value)))
+    # print(hex(int(dut.axiod.value)))
 
 def normal_to_network(byte):
     return byte[::-1]

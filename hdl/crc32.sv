@@ -19,7 +19,7 @@
  * this is the ethernet checksum!!
  */
 
-module crc32(clk, rst, axiiv, axiid, axiov, axiod);
+module crc32_old(clk, rst, axiiv, axiid, axiov, axiod);
 
 	/* old style i/o declaration, for clarity.
 	 * easier on 80-char line limits...

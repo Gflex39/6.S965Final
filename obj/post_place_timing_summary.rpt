@@ -1,8 +1,8 @@
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
 ---------------------------------------------------------------------------------------------------------------------------------------------
 | Tool Version : Vivado v.2024.1 (lin64) Build 5076996 Wed May 22 18:36:09 MDT 2024
-| Date         : Thu Nov 14 00:11:50 2024
-| Host         : eecs-digital-28 running 64-bit Ubuntu 24.04.1 LTS
+| Date         : Wed Dec  4 15:55:27 2024
+| Host         : eecs-digital-34 running 64-bit Ubuntu 24.04.1 LTS
 | Command      : report_timing_summary -file obj/post_place_timing_summary.rpt
 | Design       : top_level
 | Device       : 7s50-csga324
@@ -49,12 +49,12 @@ check_timing report
 
 Table of Contents
 -----------------
-1. checking no_clock (12)
+1. checking no_clock (0)
 2. checking constant_clock (0)
 3. checking pulse_width_clock (0)
-4. checking unconstrained_internal_endpoints (12)
-5. checking no_input_delay (1)
-6. checking no_output_delay (22)
+4. checking unconstrained_internal_endpoints (0)
+5. checking no_input_delay (26)
+6. checking no_output_delay (25)
 7. checking multiple_clock (0)
 8. checking generated_clocks (0)
 9. checking loops (0)
@@ -62,9 +62,9 @@ Table of Contents
 11. checking partial_output_delay (0)
 12. checking latch_loops (0)
 
-1. checking no_clock (12)
--------------------------
- There are 12 register/latch pins with no clock driven by root clock pin: rx_clk (HIGH)
+1. checking no_clock (0)
+------------------------
+ There are 0 register/latch pins with no clock.
 
 
 2. checking constant_clock (0)
@@ -77,23 +77,23 @@ Table of Contents
  There are 0 register/latch pins which need pulse_width check
 
 
-4. checking unconstrained_internal_endpoints (12)
--------------------------------------------------
- There are 12 pins that are not constrained for maximum delay. (HIGH)
+4. checking unconstrained_internal_endpoints (0)
+------------------------------------------------
+ There are 0 pins that are not constrained for maximum delay.
 
  There are 0 pins that are not constrained for maximum delay due to constant clock.
 
 
-5. checking no_input_delay (1)
-------------------------------
- There is 1 input port with no input delay specified. (HIGH)
+5. checking no_input_delay (26)
+-------------------------------
+ There are 26 input ports with no input delay specified. (HIGH)
 
  There are 0 input ports with no input delay but user has a false path constraint.
 
 
-6. checking no_output_delay (22)
+6. checking no_output_delay (25)
 --------------------------------
- There are 22 ports with no output delay specified. (HIGH)
+ There are 25 ports with no output delay specified. (HIGH)
 
  There are 0 ports with no output delay but user has a false path constraint
 
@@ -138,7 +138,7 @@ Table of Contents
 
     WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
     -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
-      1.551        0.000                      0                   56        0.203        0.000                      0                   56        0.500        0.000                       0                    29  
+      3.559        0.000                      0                  573        0.142        0.000                      0                  573        3.500        0.000                       0                   260  
 
 
 All user specified timing constraints are met.
@@ -149,9 +149,9 @@ All user specified timing constraints are met.
 | -------------
 ------------------------------------------------------------------------------------------------
 
-Clock  Waveform(ns)         Period(ns)      Frequency(MHz)
------  ------------         ----------      --------------
-gclk   {0.000 4.000}        5.000           200.000         
+Clock  Waveform(ns)       Period(ns)      Frequency(MHz)
+-----  ------------       ----------      --------------
+gclk   {0.000 4.000}      10.000          100.000         
 
 
 ------------------------------------------------------------------------------------------------
@@ -161,7 +161,7 @@ gclk   {0.000 4.000}        5.000           200.000
 
 Clock             WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
 -----             -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
-gclk                1.551        0.000                      0                   56        0.203        0.000                      0                   56        0.500        0.000                       0                    29  
+gclk                3.559        0.000                      0                  573        0.142        0.000                      0                  573        3.500        0.000                       0                   260  
 
 
 ------------------------------------------------------------------------------------------------
@@ -192,28 +192,28 @@ Path Group    From Clock    To Clock          WNS(ns)      TNS(ns)  TNS Failing 
 From Clock:  gclk
   To Clock:  gclk
 
-Setup :            0  Failing Endpoints,  Worst Slack        1.551ns,  Total Violation        0.000ns
-Hold  :            0  Failing Endpoints,  Worst Slack        0.203ns,  Total Violation        0.000ns
-PW    :            0  Failing Endpoints,  Worst Slack        0.500ns,  Total Violation        0.000ns
+Setup :            0  Failing Endpoints,  Worst Slack        3.559ns,  Total Violation        0.000ns
+Hold  :            0  Failing Endpoints,  Worst Slack        0.142ns,  Total Violation        0.000ns
+PW    :            0  Failing Endpoints,  Worst Slack        3.500ns,  Total Violation        0.000ns
 ---------------------------------------------------------------------------------------------------
 
 
 Max Delay Paths
 --------------------------------------------------------------------------------------
-Slack (MET) :             1.551ns  (required time - arrival time)
-  Source:                 mssc/segment_counter_reg[12]/C
-                            (rising edge-triggered cell FDRE clocked by gclk  {rise@0.000ns fall@4.000ns period=5.000ns})
-  Destination:            mssc/segment_counter_reg[4]/R
-                            (rising edge-triggered cell FDRE clocked by gclk  {rise@0.000ns fall@4.000ns period=5.000ns})
+Slack (MET) :             3.559ns  (required time - arrival time)
+  Source:                 phy_to_mac/data_length_reg[0]/C
+                            (rising edge-triggered cell FDRE clocked by gclk  {rise@0.000ns fall@4.000ns period=10.000ns})
+  Destination:            phy_to_mac/state_reg[1]/CE
+                            (rising edge-triggered cell FDRE clocked by gclk  {rise@0.000ns fall@4.000ns period=10.000ns})
   Path Group:             gclk
   Path Type:              Setup (Max at Slow Process Corner)
-  Requirement:            5.000ns  (gclk rise@5.000ns - gclk rise@0.000ns)
-  Data Path Delay:        2.965ns  (logic 0.704ns (23.744%)  route 2.261ns (76.256%))
-  Logic Levels:           2  (LUT3=1 LUT5=1)
-  Clock Path Skew:        -0.020ns (DCD - SCD + CPR)
-    Destination Clock Delay (DCD):    4.833ns = ( 9.833 - 5.000 ) 
-    Source Clock Delay      (SCD):    5.120ns
-    Clock Pessimism Removal (CPR):    0.268ns
+  Requirement:            10.000ns  (gclk rise@10.000ns - gclk rise@0.000ns)
+  Data Path Delay:        6.165ns  (logic 3.173ns (51.468%)  route 2.992ns (48.532%))
+  Logic Levels:           9  (CARRY4=6 LUT3=1 LUT6=2)
+  Clock Path Skew:        -0.036ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    4.762ns = ( 14.762 - 10.000 ) 
+    Source Clock Delay      (SCD):    5.051ns
+    Clock Pessimism Removal (CPR):    0.254ns
   Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
     Total System Jitter     (TSJ):    0.071ns
     Total Input Jitter      (TIJ):    0.000ns
@@ -223,39 +223,59 @@ Slack (MET) :             1.551ns  (required time - arrival time)
     Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
   -------------------------------------------------------------------    -------------------
                          (clock gclk rise edge)       0.000     0.000 r  
-    N15                                               0.000     0.000 r  clk (IN)
-                         net (fo=0)                   0.000     0.000    clk
-    N15                  IBUF (Prop_ibuf_I_O)         1.440     1.440 r  clk_IBUF_inst/O
-                         net (fo=1, estimated)        1.972     3.412    tx_clk_OBUF
-    BUFGCTRL_X0Y0        BUFG (Prop_bufg_I_O)         0.096     3.508 r  tx_clk_OBUF_BUFG_inst/O
-                         net (fo=29, estimated)       1.612     5.120    mssc/CLK
-    SLICE_X62Y68         FDRE                                         r  mssc/segment_counter_reg[12]/C
+    N15                                               0.000     0.000 r  clk_100mhz (IN)
+                         net (fo=0)                   0.000     0.000    clk_100mhz
+    N15                  IBUF (Prop_ibuf_I_O)         1.440     1.440 r  clk_100mhz_IBUF_inst/O
+                         net (fo=1, estimated)        1.972     3.412    clk_100mhz_IBUF
+    BUFGCTRL_X0Y0        BUFG (Prop_bufg_I_O)         0.096     3.508 r  clk_100mhz_IBUF_BUFG_inst/O
+                         net (fo=259, estimated)      1.543     5.051    phy_to_mac/CLK
+    SLICE_X56Y71         FDRE                                         r  phy_to_mac/data_length_reg[0]/C
   -------------------------------------------------------------------    -------------------
-    SLICE_X62Y68         FDRE (Prop_fdre_C_Q)         0.456     5.576 f  mssc/segment_counter_reg[12]/Q
-                         net (fo=3, estimated)        0.748     6.324    mssc/segment_counter_reg[12]
-    SLICE_X63Y66         LUT3 (Prop_lut3_I0_O)        0.124     6.448 f  mssc/segment_counter[0]_i_3/O
-                         net (fo=1, estimated)        0.831     7.279    mssc/segment_counter[0]_i_3_n_0
-    SLICE_X63Y66         LUT5 (Prop_lut5_I1_O)        0.124     7.403 r  mssc/segment_counter[0]_i_1/O
-                         net (fo=17, estimated)       0.682     8.085    mssc/segment_counter[0]_i_1_n_0
-    SLICE_X62Y66         FDRE                                         r  mssc/segment_counter_reg[4]/R
+    SLICE_X56Y71         FDRE (Prop_fdre_C_Q)         0.518     5.569 r  phy_to_mac/data_length_reg[0]/Q
+                         net (fo=2, estimated)        0.541     6.110    phy_to_mac/data_length_reg_n_0_[0]
+    SLICE_X56Y71         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.595     6.705 r  phy_to_mac/byte_count_reg[0]_i_21/CO[3]
+                         net (fo=1, estimated)        0.000     6.705    phy_to_mac/byte_count_reg[0]_i_21_n_0
+    SLICE_X56Y72         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.117     6.822 r  phy_to_mac/byte_count_reg[0]_i_16/CO[3]
+                         net (fo=1, estimated)        0.000     6.822    phy_to_mac/byte_count_reg[0]_i_16_n_0
+    SLICE_X56Y73         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.117     6.939 r  phy_to_mac/byte_count_reg[0]_i_8/CO[3]
+                         net (fo=1, estimated)        0.000     6.939    phy_to_mac/byte_count_reg[0]_i_8_n_0
+    SLICE_X56Y74         CARRY4 (Prop_carry4_CI_O[1])
+                                                      0.323     7.262 f  phy_to_mac/byte_count_reg[0]_i_4/O[1]
+                         net (fo=1, estimated)        0.722     7.984    phy_to_mac/state2[14]
+    SLICE_X57Y72         LUT3 (Prop_lut3_I0_O)        0.306     8.290 r  phy_to_mac/byte_count[0]_i_7/O
+                         net (fo=1, routed)           0.000     8.290    phy_to_mac/byte_count[0]_i_7_n_0
+    SLICE_X57Y72         CARRY4 (Prop_carry4_S[0]_CO[3])
+                                                      0.532     8.822 r  phy_to_mac/byte_count_reg[0]_i_3/CO[3]
+                         net (fo=1, estimated)        0.000     8.822    phy_to_mac/byte_count_reg[0]_i_3_n_0
+    SLICE_X57Y73         CARRY4 (Prop_carry4_CI_CO[2])
+                                                      0.228     9.050 r  phy_to_mac/byte_count_reg[0]_i_2/CO[2]
+                         net (fo=5, estimated)        0.701     9.751    phy_to_mac/byte_count_reg[0]_i_2_n_1
+    SLICE_X59Y71         LUT6 (Prop_lut6_I3_O)        0.313    10.064 r  phy_to_mac/state[3]_i_3/O
+                         net (fo=1, estimated)        0.432    10.496    phy_to_mac/state[3]_i_3_n_0
+    SLICE_X59Y70         LUT6 (Prop_lut6_I0_O)        0.124    10.620 r  phy_to_mac/state[3]_i_1/O
+                         net (fo=4, estimated)        0.596    11.216    phy_to_mac/state[3]_i_1_n_0
+    SLICE_X55Y70         FDRE                                         r  phy_to_mac/state_reg[1]/CE
   -------------------------------------------------------------------    -------------------
 
-                         (clock gclk rise edge)       5.000     5.000 r  
-    N15                                               0.000     5.000 r  clk (IN)
-                         net (fo=0)                   0.000     5.000    clk
-    N15                  IBUF (Prop_ibuf_I_O)         1.370     6.370 r  clk_IBUF_inst/O
-                         net (fo=1, estimated)        1.873     8.244    tx_clk_OBUF
-    BUFGCTRL_X0Y0        BUFG (Prop_bufg_I_O)         0.091     8.335 r  tx_clk_OBUF_BUFG_inst/O
-                         net (fo=29, estimated)       1.498     9.833    mssc/CLK
-    SLICE_X62Y66         FDRE                                         r  mssc/segment_counter_reg[4]/C
-                         clock pessimism              0.268    10.100    
-                         clock uncertainty           -0.035    10.065    
-    SLICE_X62Y66         FDRE (Setup_fdre_C_R)       -0.429     9.636    mssc/segment_counter_reg[4]
+                         (clock gclk rise edge)      10.000    10.000 r  
+    N15                                               0.000    10.000 r  clk_100mhz (IN)
+                         net (fo=0)                   0.000    10.000    clk_100mhz
+    N15                  IBUF (Prop_ibuf_I_O)         1.370    11.370 r  clk_100mhz_IBUF_inst/O
+                         net (fo=1, estimated)        1.873    13.244    clk_100mhz_IBUF
+    BUFGCTRL_X0Y0        BUFG (Prop_bufg_I_O)         0.091    13.335 r  clk_100mhz_IBUF_BUFG_inst/O
+                         net (fo=259, estimated)      1.427    14.762    phy_to_mac/CLK
+    SLICE_X55Y70         FDRE                                         r  phy_to_mac/state_reg[1]/C
+                         clock pessimism              0.254    15.015    
+                         clock uncertainty           -0.035    14.980    
+    SLICE_X55Y70         FDRE (Setup_fdre_C_CE)      -0.205    14.775    phy_to_mac/state_reg[1]
   -------------------------------------------------------------------
-                         required time                          9.636    
-                         arrival time                          -8.085    
+                         required time                         14.775    
+                         arrival time                         -11.216    
   -------------------------------------------------------------------
-                         slack                                  1.551    
+                         slack                                  3.559    
 
 
 
@@ -263,52 +283,52 @@ Slack (MET) :             1.551ns  (required time - arrival time)
 
 Min Delay Paths
 --------------------------------------------------------------------------------------
-Slack (MET) :             0.203ns  (arrival time - required time)
-  Source:                 mssc/segment_state_reg[2]/C
-                            (rising edge-triggered cell FDRE clocked by gclk  {rise@0.000ns fall@4.000ns period=5.000ns})
-  Destination:            mssc/segment_state_reg[3]/D
-                            (rising edge-triggered cell FDRE clocked by gclk  {rise@0.000ns fall@4.000ns period=5.000ns})
+Slack (MET) :             0.142ns  (arrival time - required time)
+  Source:                 phy_to_mac/checksum/lfsr_q_reg[27]/C
+                            (rising edge-triggered cell FDSE clocked by gclk  {rise@0.000ns fall@4.000ns period=10.000ns})
+  Destination:            phy_to_mac/checksum/lfsr_q_reg[31]/D
+                            (rising edge-triggered cell FDSE clocked by gclk  {rise@0.000ns fall@4.000ns period=10.000ns})
   Path Group:             gclk
   Path Type:              Hold (Min at Fast Process Corner)
   Requirement:            0.000ns  (gclk rise@0.000ns - gclk rise@0.000ns)
-  Data Path Delay:        0.286ns  (logic 0.141ns (49.300%)  route 0.145ns (50.700%))
+  Data Path Delay:        0.227ns  (logic 0.141ns (62.233%)  route 0.086ns (37.767%))
   Logic Levels:           0  
-  Clock Path Skew:        0.013ns (DCD - SCD - CPR)
-    Destination Clock Delay (DCD):    2.152ns
-    Source Clock Delay      (SCD):    1.650ns
-    Clock Pessimism Removal (CPR):    0.489ns
+  Clock Path Skew:        0.014ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    2.124ns
+    Source Clock Delay      (SCD):    1.623ns
+    Clock Pessimism Removal (CPR):    0.487ns
 
     Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
   -------------------------------------------------------------------    -------------------
                          (clock gclk rise edge)       0.000     0.000 r  
-    N15                                               0.000     0.000 r  clk (IN)
-                         net (fo=0)                   0.000     0.000    clk
-    N15                  IBUF (Prop_ibuf_I_O)         0.209     0.209 r  clk_IBUF_inst/O
-                         net (fo=1, estimated)        0.831     1.040    tx_clk_OBUF
-    BUFGCTRL_X0Y0        BUFG (Prop_bufg_I_O)         0.026     1.066 r  tx_clk_OBUF_BUFG_inst/O
-                         net (fo=29, estimated)       0.584     1.650    mssc/CLK
-    SLICE_X63Y67         FDRE                                         r  mssc/segment_state_reg[2]/C
+    N15                                               0.000     0.000 r  clk_100mhz (IN)
+                         net (fo=0)                   0.000     0.000    clk_100mhz
+    N15                  IBUF (Prop_ibuf_I_O)         0.209     0.209 r  clk_100mhz_IBUF_inst/O
+                         net (fo=1, estimated)        0.831     1.040    clk_100mhz_IBUF
+    BUFGCTRL_X0Y0        BUFG (Prop_bufg_I_O)         0.026     1.066 r  clk_100mhz_IBUF_BUFG_inst/O
+                         net (fo=259, estimated)      0.557     1.623    phy_to_mac/checksum/CLK
+    SLICE_X57Y67         FDSE                                         r  phy_to_mac/checksum/lfsr_q_reg[27]/C
   -------------------------------------------------------------------    -------------------
-    SLICE_X63Y67         FDRE (Prop_fdre_C_Q)         0.141     1.791 r  mssc/segment_state_reg[2]/Q
-                         net (fo=2, estimated)        0.145     1.936    mssc/p_0_in[3]
-    SLICE_X63Y68         FDRE                                         r  mssc/segment_state_reg[3]/D
+    SLICE_X57Y67         FDSE (Prop_fdse_C_Q)         0.141     1.764 r  phy_to_mac/checksum/lfsr_q_reg[27]/Q
+                         net (fo=2, estimated)        0.086     1.849    phy_to_mac/checksum/lfsr_q_reg_n_0_[27]
+    SLICE_X57Y67         FDSE                                         r  phy_to_mac/checksum/lfsr_q_reg[31]/D
   -------------------------------------------------------------------    -------------------
 
                          (clock gclk rise edge)       0.000     0.000 r  
-    N15                                               0.000     0.000 r  clk (IN)
-                         net (fo=0)                   0.000     0.000    clk
-    N15                  IBUF (Prop_ibuf_I_O)         0.396     0.396 r  clk_IBUF_inst/O
-                         net (fo=1, estimated)        0.875     1.271    tx_clk_OBUF
-    BUFGCTRL_X0Y0        BUFG (Prop_bufg_I_O)         0.029     1.300 r  tx_clk_OBUF_BUFG_inst/O
-                         net (fo=29, estimated)       0.852     2.152    mssc/CLK
-    SLICE_X63Y68         FDRE                                         r  mssc/segment_state_reg[3]/C
-                         clock pessimism             -0.489     1.663    
-    SLICE_X63Y68         FDRE (Hold_fdre_C_D)         0.070     1.733    mssc/segment_state_reg[3]
+    N15                                               0.000     0.000 r  clk_100mhz (IN)
+                         net (fo=0)                   0.000     0.000    clk_100mhz
+    N15                  IBUF (Prop_ibuf_I_O)         0.396     0.396 r  clk_100mhz_IBUF_inst/O
+                         net (fo=1, estimated)        0.875     1.271    clk_100mhz_IBUF
+    BUFGCTRL_X0Y0        BUFG (Prop_bufg_I_O)         0.029     1.300 r  clk_100mhz_IBUF_BUFG_inst/O
+                         net (fo=259, estimated)      0.824     2.124    phy_to_mac/checksum/CLK
+    SLICE_X57Y67         FDSE                                         r  phy_to_mac/checksum/lfsr_q_reg[31]/C
+                         clock pessimism             -0.487     1.637    
+    SLICE_X57Y67         FDSE (Hold_fdse_C_D)         0.071     1.708    phy_to_mac/checksum/lfsr_q_reg[31]
   -------------------------------------------------------------------
-                         required time                         -1.733    
-                         arrival time                           1.936    
+                         required time                         -1.708    
+                         arrival time                           1.849    
   -------------------------------------------------------------------
-                         slack                                  0.203    
+                         slack                                  0.142    
 
 
 
@@ -318,13 +338,13 @@ Pulse Width Checks
 --------------------------------------------------------------------------------------
 Clock Name:         gclk
 Waveform(ns):       { 0.000 4.000 }
-Period(ns):         5.000
-Sources:            { clk }
+Period(ns):         10.000
+Sources:            { clk_100mhz }
 
 Check Type        Corner  Lib Pin  Reference Pin  Required(ns)  Actual(ns)  Slack(ns)  Location       Pin
-Min Period        n/a     BUFG/I   n/a            2.155         5.000       2.845      BUFGCTRL_X0Y0  tx_clk_OBUF_BUFG_inst/I
-Low Pulse Width   Slow    FDRE/C   n/a            0.500         1.000       0.500      SLICE_X62Y65   mssc/segment_counter_reg[0]/C
-High Pulse Width  Slow    FDRE/C   n/a            0.500         4.000       3.500      SLICE_X62Y65   mssc/segment_counter_reg[0]/C
+Min Period        n/a     BUFG/I   n/a            2.155         10.000      7.845      BUFGCTRL_X0Y0  clk_100mhz_IBUF_BUFG_inst/I
+Low Pulse Width   Slow    FDRE/C   n/a            0.500         6.000       5.500      SLICE_X0Y123   clk_25mhz_reg/C
+High Pulse Width  Slow    FDRE/C   n/a            0.500         4.000       3.500      SLICE_X0Y123   clk_25mhz_reg/C
 
 
 

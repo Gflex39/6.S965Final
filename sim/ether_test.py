@@ -14,7 +14,7 @@ from cocotb.handle import SimHandleBase
 from cocotb.binary import BinaryValue
 
 import numpy as np
-
+import math
 import os
 import sys
 import logging
@@ -32,8 +32,8 @@ async def ready(dut, value):
     await FallingEdge(dut.clk)
     dut.m00_axis_tready.value = value
 
-async def clock(clk):
-    await cocotb.start(Clock(clk, 10, 'ns').start(start_high=True))
+async def clock(clk,period=10):
+    await cocotb.start(Clock(clk, period, 'ns').start(start_high=True))
 
 class EtherMonitor(BusMonitor):
     def __init__(self, dut, name, clk, **kwargs):
@@ -63,18 +63,20 @@ class EtherDriver(BusDriver):
     self.clock = clk
     self.bus.rxd.value = 0
     self.bus.crsdv.value = 0
+    
 
   async def _driver_send(self, value, sync=True):
     falling_edge = FallingEdge(self.clock)
     read_only = ReadOnly()
 
-    await falling_edge
+    await RisingEdge(self.clock)
 
     for data in value["contents"]["data"]:
         self.bus.crsdv.value = 1
         self.bus.rxd.value = data
         await read_only
-        await falling_edge
+        await RisingEdge(self.clock)
+        
 
     self.bus.rxd.value = 0
     self.bus.crsdv.value = 0
@@ -84,8 +86,8 @@ class EthernetTester:
         self.dut = dut_entity
         self.log = logging.getLogger("cocotb.tb")
         self.log.setLevel(logging.DEBUG)
-        self.output_mon = EtherMonitor(self.dut,'m00',self.dut.clk, callback=self.model)
-        self.input_driver = EtherDriver(self.dut,"ether",self.dut.clk)
+        self.output_mon = EtherMonitor(self.dut,'m00',self.dut.rx_clk, callback=self.model)
+        self.input_driver = EtherDriver(self.dut,"ether",self.dut.rx_clk)
 
         self.outputs = []
         self.expected_outputs = []
@@ -103,45 +105,51 @@ class EthernetTester:
 async def test(dut):
     tester = EthernetTester(dut)
     await clock(dut.clk)
+    await clock(dut.rx_clk, period = 40)
     await reset(dut.clk, dut.rst)
     preamble=["01010101"]*7
     sfd=["11010101"]
-    source_address=byte_pad(bin(int("DEADBEEFDEDE",16))[2:])
+    source_address="00000000"*6
     destination_address=byte_pad(bin(int("BEEFDEADFEFE",16))[2:])
     source_address=[source_address[8*i:8*i+8] for i in range(len(source_address)//8)]
     destination_address=[destination_address[8*i:8*i+8] for i in range(len(destination_address)//8)]
 
     
-    packets=[ integer_to_packet_data(random.randint(0,2**1024)) for _ in range(10)]
+    packets=[ integer_to_packet_data(random.randint(0,2**2401)) for _ in range(16
+                                                                               )]
     for data in packets:
         # print(print(int("".join(packet[:-4]),2)))
-        allow=random.random()>0.5
+        allow=1>0.5
         data_value=data[2:]
-        
         if allow:
             destination=destination_address
-            tester.expected_outputs.append(int("".join(data_value),2))
+            
+            if int("".join(data[0:2]),2)<=300:
+            
+                tester.expected_outputs.append(int("".join(data_value),2))
         else:
             destination=source_address
 
         packet=destination+source_address+data
 
         network_packet="".join([normal_to_network(byte) for byte in packet])
-
+        print(hex(int("".join(packet),2)))
+        print(hex(int(network_packet,2)))
         fcs=crc32_calculator(int(network_packet,2))
-        # print(hex(int(fcs,2)))
+        print(hex(int(fcs,2)))
         if len(fcs)%8!=0:
             fcs="0"*(8-(len(fcs))%8)+fcs
         fcs=[fcs[8*i:8*i+8] for i in range(len(fcs)//8)]
+        
         fcs=[i[::-1] for i in fcs]
         network_packet="".join([normal_to_dibit_network(byte) for byte in preamble+sfd+packet+fcs])
-
-        di_bits=[network_packet[2*i:2*i+2] for i in range(len(network_packet)//2)]
+        # print(hex(int("".join([normal_to_dibit_network(byte) for byte in packet]),2)))
+        di_bits=[network_packet[4*i:4*i+4] for i in range(len(network_packet)//4)]+["1011"]*3
         # print(di_bits)
         tester.input_driver.append({ "type": "burst", "contents": { "data": [int(i,2) for i in di_bits] } })
 
 
-    await ClockCycles(dut.clk,10000 )
+    await ClockCycles(dut.clk,100000 )
     print(len(tester.outputs))
     print(len(tester.expected_outputs))
     assert tester.outputs == tester.expected_outputs
@@ -152,7 +160,7 @@ def normal_to_network(byte):
     return byte[::-1]
 
 def normal_to_dibit_network(byte):
-    split_byte=[byte[2*i:2*i+2] for i in range(len(byte)//2)]
+    split_byte=[byte[4*i:4*i+4] for i in range(len(byte)//4)]
     split_byte.reverse()
 
     return "".join(split_byte)
@@ -203,14 +211,14 @@ def main():
     sim = os.getenv("SIM", "icarus")
     proj_path = Path(__file__).resolve().parent.parent
     sys.path.append(str(proj_path / "sim" / "model"))
-    sources = [proj_path / "hdl" / "ether.sv",proj_path / "hdl" / "crc32.sv"]
+    sources = [proj_path / "hdl" / "ether_4.sv",proj_path / "hdl" / "crc32_4.sv"]
     build_test_args = ["-Wall"]
     parameters = {}
     sys.path.append(str(proj_path / "sim"))
     runner = get_runner(sim)
     runner.build(
         sources=sources,
-        hdl_toplevel="ether",
+        hdl_toplevel="ether_4",
         always=True,
         build_args=build_test_args,
         parameters=parameters,
@@ -219,7 +227,7 @@ def main():
     )
     run_test_args = []
     runner.test(
-        hdl_toplevel="ether",
+        hdl_toplevel="ether_4",
         test_module="ether_test",
         test_args=run_test_args,
         waves=True

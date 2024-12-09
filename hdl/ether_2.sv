@@ -83,7 +83,7 @@ always_ff @( posedge clk ) begin : stateMachine
 
         case (state)
             IDLE: begin
-
+                if(ether_crsdv == 1)begin
                 if(ether_rxd == 2'b01)begin
                     if(preamble_count== 5'd27)begin
                         state<=SFD;
@@ -93,6 +93,7 @@ always_ff @( posedge clk ) begin : stateMachine
                     end
                 end else begin
                     preamble_count<=0;
+                end
                 end
                 if(end_of_frame)begin
                     end_of_frame<=0;
