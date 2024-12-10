@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 venv/
 video/
 
@@ -202,3 +203,6 @@ cython_debug/
 
 sim_build/
 tmp/
+=======
+_history
+>>>>>>> 2a78450 (removed _history)
