@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.fftpack import dctn
+from scipy.fftpack import dctn, idctn
 
 DC_TABLE = [
     (0, [0, 0]),
@@ -468,3 +468,14 @@ def quantize(y: np.ndarray) -> np.ndarray:
         q[i] = np.round(y[i] / QUANTIZATION_TABLE[i])
 
     return q.astype(int)
+
+def unquantize(y: np.ndarray) -> np.ndarray:
+    q = np.zeros(64)
+
+    for i in range(len(y)):
+        q[i] = y[i] * QUANTIZATION_TABLE[i]
+
+    return q.astype(int)
+
+def untransform(y: np.ndarray) -> np.ndarray:
+    return (idctn(y.reshape((8,8)), norm='ortho')+128).astype(int)

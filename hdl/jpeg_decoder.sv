@@ -8,21 +8,21 @@ module jpeg_decoder (
     output logic valid_out,
     output logic final_out
 );
-  logic        [10:0] value_mhd_med;
-  logic        [ 5:0] run_mhd_med;
-  logic        [ 4:0] size_mhd_med;
-  logic               dc_mhd_med;
-  logic               valid_mhd_med;
+  logic        [10:0] mhd_med_value;
+  logic        [ 5:0] mhd_med_run;
+  logic        [ 4:0] mhd_med_size;
+  logic               mhd_med_dc;
+  logic               mhd_med_valid;
 
-  logic signed [11:0] value_med_mzd;
-  logic        [ 5:0] run_med_mzd;
-  logic               valid_med_mzd;
+  logic signed [11:0] med_mzd_value;
+  logic        [ 5:0] med_mzd_run;
+  logic               med_mzd_valid;
 
-  logic        [95:0] column_mzd_miq;
-  logic               valid_mzd_miq;
+  logic        [95:0] mzd_miq_column;
+  logic               mzd_miq_valid;
 
-  logic        [95:0] column_miq_midct;
-  logic               valid_miq_midct;
+  logic        [95:0] miq_midct_column;
+  logic               miq_midct_valid;
 
   logic        [11:0] idct_in_0;
   logic        [11:0] idct_in_1;
@@ -42,7 +42,7 @@ module jpeg_decoder (
   logic        [ 7:0] idct_out_6;
   logic        [ 7:0] idct_out_7;
 
-  assign {idct_in_7, idct_in_6, idct_in_5, idct_in_4, idct_in_3, idct_in_2, idct_in_1, idct_in_0} = column_miq_midct;
+  assign {idct_in_7, idct_in_6, idct_in_5, idct_in_4, idct_in_3, idct_in_2, idct_in_1, idct_in_0} = miq_midct_column;
   assign row_out = {
     idct_out_7, idct_out_6, idct_out_5, idct_out_4, idct_out_3, idct_out_2, idct_out_1, idct_out_0
   };
@@ -52,65 +52,65 @@ module jpeg_decoder (
       .rst_in(rst_in),
       .serial_in(serial_in),
       .valid_in(valid_in),
-      .value_out(value_mhd_med),
-      .run_out(run_mhd_med),
-      .size_out(size_mhd_med),
-      .dc_out(dc_mhd_med),
-      .valid_out(valid_mhd_med)
+      .value_out(mhd_med_value),
+      .run_out(mhd_med_run),
+      .size_out(mhd_med_size),
+      .dc_out(mhd_med_dc),
+      .valid_out(mhd_med_valid)
   );
 
   entropy_decoder med (
       .clk_in(clk_in),
       .rst_in(rst_in),
-      .value_in(value_mhd_med),
-      .run_in(run_mhd_med),
-      .size_in(size_mhd_med),
-      .valid_in(valid_mhd_med),
-      .dc_in(dc_mhd_med),
-      .value_out(value_med_mzd),
-      .run_out(run_med_mzd),
-      .valid_out(valid_med_mzd)
+      .value_in(mhd_med_value),
+      .run_in(mhd_med_run),
+      .size_in(mhd_med_size),
+      .valid_in(mhd_med_valid),
+      .dc_in(mhd_med_dc),
+      .value_out(med_mzd_value),
+      .run_out(med_mzd_run),
+      .valid_out(med_mzd_valid)
   );
 
   zigzag_decoder mzd (
       .clk_in(clk_in),
       .rst_in(rst_in),
-      .value_in(value_med_mzd),
-      .run_in(run_med_mzd),
-      .valid_in(valid_med_mzd),
-      .column_out(column_mzd_miq),
-      .valid_out(valid_mzd_miq)
+      .value_in(med_mzd_value),
+      .run_in(med_mzd_run),
+      .valid_in(med_mzd_valid),
+      .column_out(mzd_miq_column),
+      .valid_out(mzd_miq_valid)
   );
 
   inverse_quantizer miq (
       .clk_in(clk_in),
       .rst_in(rst_in),
-      .column_in(column_mzd_miq),
-      .valid_in(valid_mzd_miq),
-      .column_out(column_miq_midct),
-      .valid_out(valid_miq_midct)
+      .column_in(mzd_miq_column),
+      .valid_in(mzd_miq_valid),
+      .column_out(miq_midct_column),
+      .valid_out(miq_midct_valid)
   );
 
   idct_2d midct (
       .rst_in(rst_in),
       .clk_in(clk_in),
-      .idct_in_0(idct_in_7),
-      .idct_in_1(idct_in_6),
-      .idct_in_2(idct_in_5),
-      .idct_in_3(idct_in_4),
-      .idct_in_4(idct_in_3),
-      .idct_in_5(idct_in_2),
-      .idct_in_6(idct_in_1),
-      .idct_in_7(idct_in_0),
-      .valid_in(valid_miq_midct),
-      .idct_out_0(idct_out_7),
-      .idct_out_1(idct_out_6),
-      .idct_out_2(idct_out_5),
-      .idct_out_3(idct_out_4),
-      .idct_out_4(idct_out_3),
-      .idct_out_5(idct_out_2),
-      .idct_out_6(idct_out_1),
-      .idct_out_7(idct_out_0),
+      .idct_in_0(idct_in_0),
+      .idct_in_1(idct_in_1),
+      .idct_in_2(idct_in_2),
+      .idct_in_3(idct_in_3),
+      .idct_in_4(idct_in_4),
+      .idct_in_5(idct_in_5),
+      .idct_in_6(idct_in_6),
+      .idct_in_7(idct_in_7),
+      .valid_in(miq_midct_valid),
+      .idct_out_0(idct_out_0),
+      .idct_out_1(idct_out_1),
+      .idct_out_2(idct_out_2),
+      .idct_out_3(idct_out_3),
+      .idct_out_4(idct_out_4),
+      .idct_out_5(idct_out_5),
+      .idct_out_6(idct_out_6),
+      .idct_out_7(idct_out_7),
       .valid_out(valid_out),
       .final_out(final_out)
   );

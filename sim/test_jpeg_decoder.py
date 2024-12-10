@@ -11,7 +11,7 @@ import os
 import sys
 from pathlib import Path
 
-from model import encode_block, transform, quantize, zigzag
+from model import *
 
 async def reset(clk, rst, cycles=2):
     rst.value = 1
@@ -55,12 +55,17 @@ async def test(dut):
     C = transform(B)
     D = quantize(C)
     E = zigzag(D)
+    F = unquantize(D)
+    G = untransform(F)
 
     print(f"{A.reshape((8,8))}")
     print(f"{C.reshape((8,8)).astype(int)}")
     print(f"{D.reshape((8,8))}")
     print(f"{E.reshape((8,8))}")
+    print(f"{F.reshape((8,8))}")
+    print(f"{G.reshape((8,8))}")
 
+    await send_block(dut, E)
     await send_block(dut, E)
 
     await off(dut)
