@@ -7,7 +7,7 @@ module serializer(
     input wire [2400:0] data,
     input wire [32:0] length,
     input wire send,
-    input wire valid,
+    output wire valid,
     output logic output_data
 
 );
@@ -46,7 +46,6 @@ always_ff @( posedge clk ) begin
                     state<=SEND;
                 end
             end
-            default: 
         endcase
 
     end   
