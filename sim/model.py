@@ -478,4 +478,4 @@ def unquantize(y: np.ndarray) -> np.ndarray:
     return q.astype(int)
 
 def untransform(y: np.ndarray) -> np.ndarray:
-    return (idctn(y.reshape((8,8)), norm='ortho')+128).astype(int)
+    return np.trunc(idctn(y.reshape((8,8)), norm='ortho')+128).astype(int)

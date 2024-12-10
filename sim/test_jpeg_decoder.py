@@ -34,6 +34,7 @@ async def off(dut):
 async def send_block(dut, block):
     for b in encode_block(block):
         await feed_bit(dut, b)
+    await off(dut)
 
 @cocotb.test()
 async def test(dut):
@@ -58,17 +59,16 @@ async def test(dut):
     F = unquantize(D)
     G = untransform(F)
 
-    print(f"{A.reshape((8,8))}")
-    print(f"{C.reshape((8,8)).astype(int)}")
-    print(f"{D.reshape((8,8))}")
-    print(f"{E.reshape((8,8))}")
-    print(f"{F.reshape((8,8))}")
+    # print(f"{A.reshape((8,8))}")
+    # print(f"{C.reshape((8,8)).astype(int)}")
+    # print(f"{D.reshape((8,8))}")
+    # print(f"{E.reshape((8,8))}")
+    # print(f"{F.reshape((8,8))}")
     print(f"{G.reshape((8,8))}")
 
     await send_block(dut, E)
     await send_block(dut, E)
 
-    await off(dut)
     await ClockCycles(dut.clk_in, 300)
 
 
