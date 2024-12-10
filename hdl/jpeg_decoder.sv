@@ -114,4 +114,5 @@ module jpeg_decoder (
       .valid_out(valid_out),
       .final_out(final_out)
   );
+
 endmodule

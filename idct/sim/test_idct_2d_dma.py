@@ -268,7 +268,7 @@ async def test_idct_2d_dma(dut):
     print("\n\n\n")
     print("Channels: ", y_channel[:4])
 
-    channels = [y_channel]
+    channels = [y_channel, u_channel, v_channel]
 
     print("y_channel len:", len(y_channel))
     print("u_channel len:", len(u_channel))
@@ -280,56 +280,59 @@ async def test_idct_2d_dma(dut):
 
     # Prepping for burst sending
 
-    burst_data = []
-
-    for i in range(len(channels)):
-        channel = channels[i]
-        for j in range(0, len(channel), 4):
-            values = channel[j : j + 4]
-            burst_data.append(combine_to_32bit(values))
-
-            if cnt == 14720 - 1:
-                matches.append(combine_to_32bit(values))
-                cnt = 0
-            else:
-                cnt += 1
-
-    data = {"type": "burst", "contents": {"data": burst_data}}
-    ind.append(data)
+    # burst_data = []
 
     # for i in range(len(channels)):
     #     channel = channels[i]
     #     for j in range(0, len(channel), 4):
     #         values = channel[j : j + 4]
-    #         data = {
-    #             "type": "single",
-    #             "contents": {
-    #                 "data": combine_to_32bit(values),
-    #                 "last": (
-    #                     1 if j + 4 >= len(channel) and i == len(channels) - 1 else 0
-    #                 ),
-    #                 "strb": 15,
-    #             },
-    #         }
-    #         ind.append(data)
+    #         burst_data.append(combine_to_32bit(values))
 
-    print(matches)
+    # data = {"type": "burst", "contents": {"data": burst_data}}
+    # ind.append(data)
+
+    for i in range(len(channels)):
+        channel = channels[i]
+        for j in range(0, len(channel), 4):
+            values = channel[j : j + 4]
+            data = {
+                "type": "single",
+                "contents": {
+                    "data": combine_to_32bit(values),
+                    "last": (
+                        1 if j + 4 >= len(channel) and i == len(channels) - 1 else 0
+                    ),
+                    "strb": 15,
+                },
+            }
+            ind.append(data)
+
+            if cnt == (3680 * 16 * 3) - 1:
+                matches.append(combine_to_32bit(values))
+                cnt = 0
+            else:
+                cnt += 1
 
     # # Burst
     # data = {"type": "burst", "contents": {"data": np.array([0] * 14 + [1])}}
     # ind.append(data)
 
     # Back pressure test
-    # await set_ready(dut, 0)
-    # await ClockCycles(dut.s00_axis_aclk, 300)
-    # await set_ready(dut, 1)
-    # await ClockCycles(dut.s00_axis_aclk, 10)
-    # await set_ready(dut, 0)
-    # await ClockCycles(dut.s00_axis_aclk, 10)
-    # await set_ready(dut, 1)
-    # await ClockCycles(dut.s00_axis_aclk, 2000)
+    await ClockCycles(dut.s00_axis_aclk, 50)
+    await set_ready(dut, 0)
+    await ClockCycles(dut.s00_axis_aclk, 300)
+    await set_ready(dut, 1)
+    await ClockCycles(dut.s00_axis_aclk, 10)
+    await set_ready(dut, 0)
+    await ClockCycles(dut.s00_axis_aclk, 10)
+    await set_ready(dut, 1)
+    await ClockCycles(dut.s00_axis_aclk, 2000)
 
-    await ClockCycles(dut.s00_axis_aclk, 117881)
+    await ClockCycles(dut.s00_axis_aclk, 7104000)
+
+    for match in matches:
+        print(f"{match:08x}")
+
     print(inm.transactions)
     print(outm.transactions)
     assert inm.transactions == outm.transactions, f"Transaction Count doesn't match! :/"

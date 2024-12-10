@@ -1,6 +1,8 @@
 <testsuites name="results">
   <testsuite name="all" package="all">
-    <property name="random_seed" value="1733778353" />
-    <testcase name="test_idct_2d_dma" classname="test_idct_2d_dma" file="C:\Users\hranw\Documents\GitHub\6.S965Final\idct\sim\test_idct_2d_dma.py" lineno="254" time="117.27689337730408" sim_time_ns="1178840.001" ratio_time="10051.766951290458" />
+    <property name="random_seed" value="1733780142" />
+    <testcase name="test_idct_2d_dma" classname="test_idct_2d_dma" file="C:\Users\hranw\Documents\GitHub\6.S965Final\idct\sim\test_idct_2d_dma.py" lineno="254" time="992.7302029132843" sim_time_ns="17469275.0" ratio_time="17597.203095800192">
+      <failure message="Test failed with RANDOM_SEED=1733780142" />
+    </testcase>
   </testsuite>
 </testsuites>
