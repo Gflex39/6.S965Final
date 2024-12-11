@@ -983,17 +983,17 @@ fn encode_frame(mut frame: Array3<u8>) -> EncodedFrame {
     let mut yblocks = reshape_into_blocks(y);
     fdct(yblocks.view_mut());
     zigzag_order(yblocks.view_mut());
-    delta_encode(yblocks.view_mut());
+    // delta_encode(yblocks.view_mut());
 
     let mut ublocks = reshape_into_blocks(u);
     fdct(ublocks.view_mut());
     zigzag_order(ublocks.view_mut());
-    delta_encode(ublocks.view_mut());
+    // delta_encode(ublocks.view_mut());
 
     let mut vblocks = reshape_into_blocks(v);
     fdct(vblocks.view_mut());
     zigzag_order(vblocks.view_mut());
-    delta_encode(vblocks.view_mut());
+    // delta_encode(vblocks.view_mut());
 
     EncodedFrame {
         y: yblocks,
@@ -1018,15 +1018,15 @@ where
     let mut ublocks = entropy_decode(reader, codebook, hblocks * wblocks / 4);
     let mut vblocks = entropy_decode(reader, codebook, hblocks * wblocks / 4);
 
-    delta_decode(yblocks.view_mut());
+    // delta_decode(yblocks.view_mut());
     unzigzag_order(yblocks.view_mut());
     idct(yblocks.view_mut());
 
-    delta_decode(ublocks.view_mut());
+    // delta_decode(ublocks.view_mut());
     unzigzag_order(ublocks.view_mut());
     idct(ublocks.view_mut());
 
-    delta_decode(vblocks.view_mut());
+    // delta_decode(vblocks.view_mut());
     unzigzag_order(vblocks.view_mut());
     idct(vblocks.view_mut());
 

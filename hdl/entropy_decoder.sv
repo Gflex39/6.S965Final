@@ -1,5 +1,5 @@
 module entropy_decoder#(
-    parameter DELTA_DECODE = 1
+    parameter DELTA_DECODE = 0
 )
 (
     input wire clk_in,
