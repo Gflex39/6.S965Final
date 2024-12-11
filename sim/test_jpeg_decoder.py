@@ -36,6 +36,9 @@ async def send_block(dut, block):
     print(encoded)
     for b in encoded:
         await feed_bit(dut, b)
+        await FallingEdge(dut.clk_in)
+        dut.valid_in.value = 0
+        await ClockCycles(dut.clk_in, 2)
     await off(dut)
 
 @cocotb.test()
