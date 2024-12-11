@@ -32,7 +32,9 @@ async def off(dut):
     dut.valid_in.value = 0
 
 async def send_block(dut, block):
-    for b in encode_block(block):
+    encoded = encode_block(block)
+    print(encoded)
+    for b in encoded:
         await feed_bit(dut, b)
     await off(dut)
 
@@ -41,16 +43,26 @@ async def test(dut):
     await clock(dut.clk_in)
     await reset(dut.clk_in, dut.rst_in)
 
-    A = np.array([
-        [ 52,  55,  61,  66,  70,  61,  64,  73],
-        [ 63,  59,  55,  90, 109,  85,  89,  72],
-        [ 62,  59,  68, 113, 144, 104,  66,  73],
-        [ 63,  58,  71, 122, 154, 106,  70,  69],
-        [ 67,  61,  68, 104, 126,  88,  68,  70],
-        [ 79,  65,  60,  70,  77,  68,  58,  75],
-        [ 85,  71,  64,  59,  55,  61,  65,  83],
-        [ 87,  79,  69,  68,  65,  76,  78,  94]
-    ])
+    # A = np.array([
+    #     [ 52,  55,  61,  66,  70,  61,  64,  73],
+    #     [ 63,  59,  55,  90, 109,  85,  89,  72],
+    #     [ 62,  59,  68, 113, 144, 104,  66,  73],
+    #     [ 63,  58,  71, 122, 154, 106,  70,  69],
+    #     [ 67,  61,  68, 104, 126,  88,  68,  70],
+    #     [ 79,  65,  60,  70,  77,  68,  58,  75],
+    #     [ 85,  71,  64,  59,  55,  61,  65,  83],
+    #     [ 87,  79,  69,  68,  65,  76,  78,  94]
+    # ])
+    A = np.array(
+      [[228, 228, 228, 228, 228, 228, 228, 228],
+       [228, 228, 228, 228, 228, 228, 228, 228],
+       [228, 228, 228, 228, 228, 228, 228, 228],
+       [228, 228, 228, 228, 228, 228, 228, 228],
+       [228, 228, 228, 228, 228, 228, 228, 228],
+       [228, 228, 228, 228, 228, 228, 228, 228],
+       [228, 228, 228, 228, 228, 228, 228, 228],
+       [228, 228, 228, 228, 228, 228, 228, 228]]
+    )
     B = A.copy()
 
     C = transform(B)
@@ -60,10 +72,10 @@ async def test(dut):
     G = untransform(F)
 
     # print(f"{A.reshape((8,8))}")
-    # print(f"{C.reshape((8,8)).astype(int)}")
-    # print(f"{D.reshape((8,8))}")
-    # print(f"{E.reshape((8,8))}")
-    # print(f"{F.reshape((8,8))}")
+    print(f"{C.reshape((8,8)).astype(int)}")
+    print(f"{D.reshape((8,8))}")
+    print(f"{E.reshape((8,8))}")
+    print(f"{F.reshape((8,8))}")
     print(f"{G.reshape((8,8))}")
 
     await send_block(dut, E)
