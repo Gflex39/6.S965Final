@@ -50,7 +50,7 @@ async def test(dut):
 
     for a in A:
         for bit in range(8):
-            await feed_bit(dut, (a >> bit) & 1)
+            await feed_bit(dut, (a >> (7-bit)) & 1)
 
     # A = np.array(
     #   [[228, 228, 228, 228, 228, 228, 228, 228],

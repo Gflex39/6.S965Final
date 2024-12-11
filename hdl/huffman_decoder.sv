@@ -124,6 +124,7 @@ module huffman_decoder(
                             run_out <= (63-num_decoded);
                             value_out <= 0;
                             size_out <= 0;
+                            next_buffer_len = 0;
                             state <= S_DC_SIZE;
                         end else begin
                             if (mhal_size == 0) begin

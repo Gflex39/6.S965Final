@@ -1061,11 +1061,11 @@ fn encode(infile: &str, outfile: &str) -> Result<()> {
     let (width, height) = decoder.size();
     let frame_rate = decoder.frame_rate() as u32;
 
-    writer.write_bytes(b"tiny")?;
-    writer.write_out::<16, _>(height as u16)?;
-    writer.write_out::<16, _>(width as u16)?;
-    writer.write_out::<16, _>(frame_rate as u16)?;
-    writer.write_out::<16, _>(frame_count as u16)?;
+    // writer.write_bytes(b"tiny")?;
+    // writer.write_out::<16, _>(height as u16)?;
+    // writer.write_out::<16, _>(width as u16)?;
+    // writer.write_out::<16, _>(frame_rate as u16)?;
+    // writer.write_out::<16, _>(frame_count as u16)?;
 
     decoder
         .decode_iter()
