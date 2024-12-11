@@ -7,7 +7,7 @@ module serializer(
     input wire [2400:0] data,
     input wire [32:0] length,
     input wire send,
-    output wire valid,
+    output logic valid,
     output logic output_data
 
 );
@@ -18,7 +18,8 @@ logic [32:0] bits_to_send;
 logic [2400:0] data_to_send;
 
 
-assign valid = state == SEND;
+
+initial state = IDLE;
 
 
 always_ff @( posedge clk ) begin 
@@ -27,22 +28,24 @@ always_ff @( posedge clk ) begin
         bits_to_send<=0;
         data_to_send<=0;
         state<=IDLE;
+        valid<=0;
     end else begin
 
-        casex (state)
+        case (state)
             SEND: begin
                 output_data<=data_to_send[0];
                 bits_to_send<=bits_to_send-1;
                 data_to_send<=data_to_send>>1;
-                if(bits_to_send==0)begin
+                if(bits_to_send==1)begin
                     state<=IDLE;
+                    valid<=0;
                 end
             end
             IDLE:begin
                 if(send)begin
-                    bits_to_send<=length-1;
-                    data_to_send<=(data)>>1;
-                    output_data<=data[0];
+                    valid<=1;
+                    bits_to_send<=length;
+                    data_to_send<=data;
                     state<=SEND;
                 end
             end
