@@ -20,16 +20,16 @@ module entropy_decoder#(
     always_ff @(posedge clk_in) begin
         if (valid_in && ~rst_in) begin
             value = (value_in >= (1 << (size_in - 1))) ? value_in : (value_in - (1 << size_in) + 1);
-            value = (dc_in && DELTA_DECODE) ? (value + last_dc_value) : value;
+//            value = (dc_in && DELTA_DECODE) ? (value + last_dc_value) : value;
             value_out <= value;
             run_out <= run_in;
             valid_out <= 1;
-            last_dc_value <= (dc_in && DELTA_DECODE) ? value : last_dc_value;
+//            last_dc_value <= (dc_in && DELTA_DECODE) ? value : last_dc_value;
         end else begin
             value_out <= 0;
             run_out <= 0;
             valid_out <= 0;
-            last_dc_value <= 0;
+//            last_dc_value <= 0;
         end
     end
 endmodule

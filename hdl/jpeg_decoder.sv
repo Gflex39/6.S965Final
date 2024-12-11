@@ -45,7 +45,8 @@ module jpeg_decoder (
   assign {idct_in_7, idct_in_6, idct_in_5, idct_in_4, idct_in_3, idct_in_2, idct_in_1, idct_in_0} = miq_midct_column;
   assign row_out = {
     idct_out_7, idct_out_6, idct_out_5, idct_out_4, idct_out_3, idct_out_2, idct_out_1, idct_out_0
-  };
+   };
+   //assign row_out = {idct_out_0, idct_out_1, idct_out_2, idct_out_3, idct_out_4, idct_out_5, idct_out_6, idct_out_7};
 
   huffman_decoder mhd (
       .clk_in(clk_in),
