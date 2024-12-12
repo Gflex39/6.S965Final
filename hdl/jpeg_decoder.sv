@@ -43,9 +43,9 @@ module jpeg_decoder (
   logic        [ 7:0] idct_out_7;
 
   assign {idct_in_7, idct_in_6, idct_in_5, idct_in_4, idct_in_3, idct_in_2, idct_in_1, idct_in_0} = miq_midct_column;
-  assign row_out = {
-    idct_out_7, idct_out_6, idct_out_5, idct_out_4, idct_out_3, idct_out_2, idct_out_1, idct_out_0
-   };
+//   assign row_out = {
+//     idct_out_7, idct_out_6, idct_out_5, idct_out_4, idct_out_3, idct_out_2, idct_out_1, idct_out_0
+//    };
    //assign row_out = {idct_out_0, idct_out_1, idct_out_2, idct_out_3, idct_out_4, idct_out_5, idct_out_6, idct_out_7};
 
   huffman_decoder mhd (
@@ -92,28 +92,32 @@ module jpeg_decoder (
       .valid_out(miq_midct_valid)
   );
 
-  idct_2d midct (
-      .rst_in(rst_in),
-      .clk_in(clk_in),
-      .idct_in_0(idct_in_0),
-      .idct_in_1(idct_in_1),
-      .idct_in_2(idct_in_2),
-      .idct_in_3(idct_in_3),
-      .idct_in_4(idct_in_4),
-      .idct_in_5(idct_in_5),
-      .idct_in_6(idct_in_6),
-      .idct_in_7(idct_in_7),
-      .valid_in(miq_midct_valid),
-      .idct_out_0(idct_out_0),
-      .idct_out_1(idct_out_1),
-      .idct_out_2(idct_out_2),
-      .idct_out_3(idct_out_3),
-      .idct_out_4(idct_out_4),
-      .idct_out_5(idct_out_5),
-      .idct_out_6(idct_out_6),
-      .idct_out_7(idct_out_7),
-      .valid_out(valid_out),
-      .final_out(final_out)
-  );
+  assign final_out = 1'b1;
+  assign row_out = miq_midct_column;
+  assign valid_out = miq_midct_valid;
+
+//   idct_2d midct (
+//       .rst_in(rst_in),
+//       .clk_in(clk_in),
+//       .idct_in_0(idct_in_0),
+//       .idct_in_1(idct_in_1),
+//       .idct_in_2(idct_in_2),
+//       .idct_in_3(idct_in_3),
+//       .idct_in_4(idct_in_4),
+//       .idct_in_5(idct_in_5),
+//       .idct_in_6(idct_in_6),
+//       .idct_in_7(idct_in_7),
+//       .valid_in(miq_midct_valid),
+//       .idct_out_0(idct_out_0),
+//       .idct_out_1(idct_out_1),
+//       .idct_out_2(idct_out_2),
+//       .idct_out_3(idct_out_3),
+//       .idct_out_4(idct_out_4),
+//       .idct_out_5(idct_out_5),
+//       .idct_out_6(idct_out_6),
+//       .idct_out_7(idct_out_7),
+//       .valid_out(valid_out),
+//       .final_out(final_out)
+//   );
 
 endmodule
